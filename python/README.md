@@ -2,7 +2,12 @@
 
 ## Overview
 
-This project now uses a **Docker-based environment management system** that provides seamless Python learning with automatic conflict resolution. The system smartly detects environment issues (like NixOS compatibility problems) and automatically runs problematic modules in an isolated Docker container.
+This project uses a **Docker-based environment management system** tha### Module Features
+
+### Basic Data Structures
+- Lists, tuples, sets, dictionaries
+- Interactive breakpoints for exploration
+- Examples with mutationsides Python learning with automatic conflict resolution and **copy mode support for restricted environments**. The system detects environment issues and automatically runs problematic modules in an isolated Docker container with file synchronization.
 
 ## Architecture
 
@@ -20,22 +25,18 @@ This project now uses a **Docker-based environment management system** that prov
 
 ### How It Works
 
-1. **Automatic Conflict Detection**: The system detects environment conflicts such as:
-   - NixOS incompatibilities with dynamically linked executables
-   - C++ library version conflicts (libstdc++, GLIBCXX)
-   - Multiple Python installation conflicts
-   - Package build/installation issues
-
-2. **Smart Environment Switching**: When conflicts are detected (especially for pandas), the system:
+1. **Smart Environment Switching**: The system:
    - Automatically builds a Docker environment if needed
+   - Uses copy mode if volume mounting fails in restricted environments
    - Runs the problematic module inside the container
-   - Seamlessly returns results to the host
+   - Returns results to the host
 
-3. **Container Management**: The Docker manager handles:
+2. **Container Management**: The Docker manager handles:
    - Image building with Micromamba and scientific Python stack
    - Container lifecycle (create, start, stop, restart)
-   - Volume mounting for seamless file access
+   - Volume mounting for file access OR copy mode for restricted environments
    - Command execution with proper environment activation
+   - Background file synchronization in copy mode (every 2 seconds)
 
 ## Usage
 
@@ -50,32 +51,50 @@ python python/learn_python.py --functions basic advanced pandas
 # Interactive mode with breakpoints
 python python/learn_python.py --interactive --functions pandas
 
-# List available modules
-python python/learn_python.py --list
-```
-
-### Environment Management
-```bash
-# Check environment status
-python python/learn_python.py --env-status
-
-# Set up Docker environment
+# Setup environment
 python python/learn_python.py --setup-env
 
-# Show activation instructions
-python python/learn_python.py --activate-env
-
-# Clean up environments
-python python/learn_python.py --cleanup-env
+# Check environment status
+python python/learn_python.py --env-status
 ```
 
-### Interactive Features
-```bash
-# Interactive mode with step-through capability
-python python/learn_python.py --interactive --step --functions csv_module
+### Copy Mode for Restricted Environments
 
-# Generate bash completion
-python python/learn_python.py --bash-completion > ~/.bash_completion_python
+Copy mode (`--cm` or `--copy-mode`) is designed for environments where Docker volume mounting is restricted:
+
+```bash
+# Basic copy mode
+python python/learn_python.py --copy-mode
+
+# Short form
+python python/learn_python.py --cm
+
+# Setup environment with copy mode
+python python/learn_python.py --cm --setup-env
+
+# Interactive learning with copy mode
+python python/learn_python.py --cm --interactive --functions pandas
+
+# Check status with copy mode enabled
+python python/learn_python.py --cm --env-status
+```
+
+#### How Copy Mode Works
+
+1. **Container Creation**: Creates Docker container without volume mounts
+2. **File Sync To Container**: Copies project files into container before execution
+3. **Background Sync**: Silent file synchronization every 2 seconds during interactive sessions
+4. **File Sync From Container**: Copies results back to host after execution
+5. **Clean Output**: No interference with interactive session formatting
+
+#### Automatic Fallback
+
+The system automatically detects when volume mounting fails and suggests copy mode:
+```
+❌ Failed to create container with volume mounting
+💡 This might be due to filesystem restrictions in your environment
+💡 Try using copy mode with: --copy-mode or --cm
+💡 Copy mode copies files instead of mounting volumes
 ```
 
 ## Technical Details
@@ -84,11 +103,10 @@ python python/learn_python.py --bash-completion > ~/.bash_completion_python
 - **Base Image**: `mambaorg/micromamba:1.5.6`
 - **Python Version**: 3.11
 - **Key Packages**: numpy, pandas, matplotlib, seaborn, jupyter, ipython
-- **Environment**: Fully isolated with volume mounting for project access
+- **Environment**: Isolated with volume mounting for project access
 
 ### Environment Detection
 The system automatically detects:
-- Host OS compatibility issues (NixOS, etc.)
 - Python library conflicts
 - Missing or broken package installations
 - File permission issues
@@ -103,12 +121,14 @@ When conflicts are detected:
 
 ## Benefits
 
-1. **Universal Compatibility**: Works on any system with Docker (NixOS, Ubuntu, macOS, etc.)
-2. **Zero Configuration**: Automatic environment detection and setup
-3. **Seamless Experience**: Users don't need to know about containers
-4. **Conflict Resolution**: Automatically handles library incompatibilities
-5. **Clean Isolation**: No pollution of host environment
-6. **Easy Cleanup**: Simple commands to remove everything
+1. **Tested on Linux**: Compatible with various Linux distributions
+2. **Copy Mode Support**: Operation in restricted environments where volume mounting isn't available
+3. **Zero Configuration**: Automatic environment detection and setup
+4. **Simple Experience**: Users don't need to know about containers
+5. **Conflict Resolution**: Automatically handles library incompatibilities
+6. **Clean Isolation**: No pollution of host environment
+7. **Real-time File Sync**: Background synchronization in copy mode for immediate access to generated files
+8. **Easy Cleanup**: Simple commands to remove everything
 
 ## Module Features
 
@@ -159,6 +179,7 @@ The system includes robust error handling:
 - Python 3.7+ on host (for the main script)
 - ~2GB disk space for Docker image
 - Internet connection for initial setup
+- For copy mode: Compatible with environments where volume mounting is restricted
 
 ## File Structure
 
@@ -176,4 +197,4 @@ python/
     └── pandas_module.py
 ```
 
-This architecture provides a robust, cross-platform Python learning environment that "just works" regardless of the host system's configuration or conflicts.
+This architecture provides a robust Python learning environment that has been tested on Linux distributions and works regardless of many common system configuration issues.

@@ -448,7 +448,7 @@ def detect_legacy_conflicts():
     
     return False
 
-def run_in_managed_environment(func_key):
+def run_in_managed_environment(func_key, copy_mode=False):
     """
     Run a function in a Docker-managed environment.
     """
@@ -456,15 +456,21 @@ def run_in_managed_environment(func_key):
         manager = DockerEnvironmentManager()
         
         # Ensure environment is set up
-        if not manager.setup_environment():
+        if not manager.setup_environment(copy_mode=copy_mode):
             print("❌ Failed to set up Docker environment")
             return False
         
         print(f"🔄 Running {func_key} in Docker environment...")
+        if copy_mode:
+            print("📋 Using copy mode for file operations")
         script_path = os.path.abspath(__file__)
         
         # Build arguments list, preserving interactive mode flags
         args = ['--functions', func_key]
+        
+        # Add copy mode flag if enabled
+        if copy_mode:
+            args.append('--cm')
         
         # Add interactive mode flags if they're set
         if hasattr(check_interactive_mode, 'interactive_mode') and check_interactive_mode.interactive_mode:
@@ -512,6 +518,8 @@ def main():
                        help='Export code snippets to practice/[module]/ folder for hands-on practice (default: True)')
     parser.add_argument('--no-snip', action='store_true',
                        help='Disable snippet export')
+    parser.add_argument('--cm', '--copy-mode', action='store_true',
+                       help='Use file copying instead of volume mounting (for restricted environments)')
     
     # Python Environment Management Options
     parser.add_argument('--setup-env', action='store_true',
@@ -529,7 +537,7 @@ def main():
     
     # Handle Python environment management options first
     if args.setup_env:
-        setup_mamba_environment()
+        setup_mamba_environment(copy_mode=getattr(args, 'cm', False))
         return
     
     if args.activate_env:
@@ -571,6 +579,9 @@ def main():
     # Set snippet export mode (default True, but can be disabled with --no-snip)
     global _snippet_mode
     _snippet_mode = args.snip and not args.no_snip
+    
+    # Set copy mode from args
+    copy_mode = getattr(args, 'cm', False)
     
     if check_interactive_mode.interactive_mode:
         print("Interactive mode enabled - you'll be dropped into a Python shell at breakpoints")
@@ -618,19 +629,21 @@ def main():
                     for conflict in conflict_list:
                         print(f"   - {conflict}")
                     print("\n💡 Attempting to run pandas in Docker environment...")
-                    if run_in_managed_environment(func_key):
+                    if run_in_managed_environment(func_key, copy_mode=copy_mode):
                         print("✅ Successfully ran pandas in Docker environment!")
                         continue
                     else:
                         print("❌ Could not run in Docker environment.")
                         print("🔧 Please set up environment: python python/learn_python.py --setup-env")
+                        if not copy_mode:
+                            print("💡 For restricted environments, try: --cm or --copy-mode")
                         print("=" * 60)
                         continue
                 
                 # Also check for legacy conflicts (directory-based)
                 if detect_legacy_conflicts():
                     print("\n💡 Attempting to run pandas in Docker environment...")
-                    if run_in_managed_environment(func_key):
+                    if run_in_managed_environment(func_key, copy_mode=copy_mode):
                         print("✅ Successfully ran pandas in Docker environment!")
                         continue
             
@@ -1234,16 +1247,20 @@ def show_mamba_activation():
     except Exception as e:
         print(f"❌ Error checking Docker environment: {e}")
 
-def setup_mamba_environment():
+def setup_mamba_environment(copy_mode=False):
     """Set up a Docker environment with all required packages."""
     try:
         manager = DockerEnvironmentManager()
         
         print("🚀 Setting up Docker environment for Python learning...")
+        if copy_mode:
+            print("📋 Copy mode enabled - using file copying instead of volume mounting")
         print("This will create a Docker container with Python 3.11, numpy, pandas, matplotlib, and more.")
         
-        if manager.setup_environment():
+        if manager.setup_environment(copy_mode=copy_mode):
             print("\n✅ Docker environment set up successfully!")
+            if copy_mode:
+                print("📁 Container ready for file copying operations")
             show_mamba_activation()
             return True
         else:

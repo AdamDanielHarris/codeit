@@ -19,6 +19,7 @@ class DockerEnvironmentManager:
         self.container_name = container_name
         self.script_dir = Path(__file__).parent
         self.project_root = self.script_dir.parent
+        self.copy_mode = False  # Default to volume mounting
         
     def _run_docker_command(self, cmd, capture_output=True, check=True):
         """Run a docker command and return the result."""
@@ -119,7 +120,14 @@ class DockerEnvironmentManager:
                 # Remove the old container
                 self._run_docker_command(["docker", "rm", "-f", self.container_name])
         
-        print(f"🐳 Creating container '{self.container_name}' with user {uid}:{gid}...")
+        if getattr(self, 'copy_mode', False):
+            return self._create_container_copy_mode(uid, gid)
+        else:
+            return self._create_container_mount_mode(uid, gid)
+    
+    def _create_container_mount_mode(self, uid, gid):
+        """Create container with volume mounting (traditional mode)."""
+        print(f"🐳 Creating container '{self.container_name}' with volume mounting...")
         
         # Create container with volume mounts for the project and correct user
         cmd = [
@@ -127,6 +135,36 @@ class DockerEnvironmentManager:
             "--name", self.container_name,
             "--user", f"{uid}:{gid}",
             "-v", f"{self.project_root}:/workspace",
+            "-w", "/workspace",
+            # Environment variables to fix matplotlib and fontconfig permission issues
+            "-e", "MPLCONFIGDIR=/tmp/matplotlib",
+            "-e", "FONTCONFIG_PATH=/tmp/fontconfig", 
+            "-e", "XDG_CACHE_HOME=/tmp/cache",
+            "-e", "MPLBACKEND=Agg",  # Use non-interactive backend
+            "-it",
+            self.image_name
+        ]
+        
+        result = self._run_docker_command(cmd)
+        
+        # Check if mounting failed and suggest copy mode
+        if result is None:
+            print("❌ Failed to create container with volume mounting")
+            print("💡 This might be due to filesystem restrictions in your environment")
+            print("💡 Try using copy mode with: --copy-mode or --cm")
+            print("💡 Copy mode copies files instead of mounting volumes")
+        
+        return result is not None
+    
+    def _create_container_copy_mode(self, uid, gid):
+        """Create container without volume mounting (copy mode)."""
+        print(f"🐳 Creating container '{self.container_name}' for copy mode...")
+        
+        # Create container without volume mounts
+        cmd = [
+            "docker", "create",
+            "--name", self.container_name,
+            "--user", f"{uid}:{gid}",
             "-w", "/workspace",
             # Environment variables to fix matplotlib and fontconfig permission issues
             "-e", "MPLCONFIGDIR=/tmp/matplotlib",
@@ -230,8 +268,63 @@ class DockerEnvironmentManager:
         
         return result
     
+    def run_interactive_with_sync(self, command):
+        """Run interactive command with periodic sync in copy mode."""
+        import threading
+        import time
+        import signal
+        import sys
+        
+        if not self.start_container():
+            return None
+        
+        print("📋 Copy mode: Starting interactive session with auto-sync...")
+        print("💡 Files will be synced back periodically during the session")
+        
+        # Prepare docker exec command with proper micromamba activation
+        cmd = ["docker", "exec", "-it", self.container_name, "/opt/conda/activate_env.sh", "bash", "-c", command]
+        
+        # Flag to control sync thread
+        sync_active = threading.Event()
+        sync_active.set()
+        
+        def sync_periodically():
+            """Background thread to sync files periodically."""
+            while sync_active.is_set():
+                time.sleep(2)  # Sync every 2 seconds
+                if sync_active.is_set():  # Check again in case we're shutting down
+                    try:
+                        # Silent sync during background operation
+                        self.sync_from_container(quiet=True)
+                    except Exception as e:
+                        # Don't print errors during background sync to avoid output interference
+                        pass
+        
+        # Start background sync thread
+        sync_thread = threading.Thread(target=sync_periodically, daemon=True)
+        sync_thread.start()
+        
+        try:
+            # Run the interactive command
+            result = self._run_docker_command(cmd, capture_output=False)
+            return result
+        finally:
+            # Stop sync thread and do final sync
+            sync_active.clear()
+            print("\n📁 Performing final sync...")
+            self.sync_from_container(quiet=False)
+            print("✅ Interactive session ended, files synced")
+        
+        return result
+    
     def run_python_script(self, script_path, *args):
         """Run a Python script inside the container."""
+        # In copy mode, sync files to container first
+        if getattr(self, 'copy_mode', False):
+            if not self.sync_to_container():
+                print("❌ Failed to sync files to container")
+                return None
+        
         # Convert absolute path to relative path from project root
         try:
             rel_path = Path(script_path).relative_to(self.project_root)
@@ -247,7 +340,18 @@ class DockerEnvironmentManager:
         # Check if this is an interactive session
         is_interactive = '--interactive' in args or '-i' in args
         
-        return self.run_command_in_container(command, interactive=is_interactive)
+        # For interactive mode in copy mode, we need special handling
+        if getattr(self, 'copy_mode', False) and is_interactive:
+            result = self.run_interactive_with_sync(command)
+        else:
+            result = self.run_command_in_container(command, interactive=is_interactive)
+        
+        # In copy mode, sync files back from container after execution
+        if getattr(self, 'copy_mode', False) and not is_interactive:
+            if not self.sync_from_container(quiet=False):
+                print("⚠️  Failed to sync files back from container")
+        
+        return result
     
     def get_python_path(self):
         """Get the Python executable path inside the container."""
@@ -256,12 +360,15 @@ class DockerEnvironmentManager:
             return result.stdout.strip()
         return "/opt/conda/envs/python-learning/bin/python"
     
-    def setup_environment(self):
+    def setup_environment(self, copy_mode=False, auto_fallback=True):
         """Set up the complete Docker environment."""
         if not self.is_docker_available():
             print("❌ Docker is not available or not running")
             print("💡 Please install Docker and ensure it's running")
             return False
+        
+        # Store copy mode for later use
+        self.copy_mode = copy_mode
         
         # Build image if it doesn't exist
         if not self.image_exists():
@@ -269,12 +376,33 @@ class DockerEnvironmentManager:
                 print("❌ Failed to build Docker image")
                 return False
         
-        # Start container
+        # Try to start container 
         if not self.start_container():
-            print("❌ Failed to start Docker container")
-            return False
+            # If we failed and we're not already in copy mode, try copy mode
+            if not copy_mode and auto_fallback:
+                print("\n🔄 Mount mode failed, trying copy mode as fallback...")
+                print("📋 Copy mode: files will be copied instead of mounted")
+                
+                # Switch to copy mode and try again
+                self.copy_mode = True
+                
+                # Remove failed container if it exists
+                if self.container_exists():
+                    self._run_docker_command(["docker", "rm", "-f", self.container_name])
+                
+                # Try again with copy mode
+                if not self.start_container():
+                    print("❌ Failed to start Docker container even with copy mode")
+                    return False
+                else:
+                    print("✅ Copy mode fallback successful!")
+            else:
+                print("❌ Failed to start Docker container")
+                return False
         
         print("✅ Docker environment is ready!")
+        if self.copy_mode:
+            print("📋 Copy mode enabled - files will be copied instead of mounted")
         return True
     
     def get_environment_info(self):
@@ -300,6 +428,7 @@ class DockerEnvironmentManager:
         print(f"Image exists: {'✅ Yes' if info['image_exists'] else '❌ No'}")
         print(f"Container exists: {'✅ Yes' if info['container_exists'] else '❌ No'}")
         print(f"Container running: {'✅ Yes' if info['container_running'] else '❌ No'}")
+        print(f"Copy mode: {'✅ Enabled' if getattr(self, 'copy_mode', False) else '❌ Disabled'}")
         
         if info['container_running']:
             print(f"Python path: {info['python_path']}")
@@ -325,6 +454,111 @@ class DockerEnvironmentManager:
             result = self._run_docker_command(["docker", "rmi", self.image_name])
             if not result:
                 success = False
+        
+        return success
+    
+    def sync_to_container(self):
+        """Copy project files to container (copy mode only)."""
+        if not getattr(self, 'copy_mode', False):
+            return True  # No sync needed in mount mode
+        
+        if not self.container_exists():
+            print("❌ Container doesn't exist for file sync")
+            return False
+        
+        print("📂 Syncing files to container...")
+        
+        # Copy the entire project directory to the container
+        result = self._run_docker_command([
+            "docker", "cp", 
+            f"{self.project_root}/.", 
+            f"{self.container_name}:/workspace/"
+        ])
+        
+        if result is not None:
+            print("✅ Files synced to container")
+            return True
+        else:
+            print("❌ Failed to sync files to container")
+            return False
+    
+    def sync_from_container(self, quiet=False):
+        """Copy files back from container (copy mode only)."""
+        if not getattr(self, 'copy_mode', False):
+            return True  # No sync needed in mount mode
+        
+        if not self.container_exists():
+            if not quiet:
+                print("❌ Container doesn't exist for file sync")
+            return False
+        
+        # Use a more comprehensive approach to find all files
+        # Look for all Python files and common output files
+        patterns = [
+            "*.py", "*.txt", "*.md", "*.json", "*.csv", 
+            "*.png", "*.jpg", "*.jpeg", "*.gif", "*.svg",
+            "*.html", "*.pdf"
+        ]
+        
+        files_found = []
+        for pattern in patterns:
+            result = self._run_docker_command([
+                "docker", "exec", self.container_name,
+                "bash", "-c", f"find /workspace -name '{pattern}' -type f 2>/dev/null"
+            ], check=False)
+            
+            if result and result.stdout.strip():
+                files_found.extend(result.stdout.strip().split('\n'))
+        
+        if not files_found:
+            return True
+        
+        success = True
+        files_copied = 0
+        new_files = 0
+        
+        for file_path in files_found:
+            file_path = file_path.strip()
+            if not file_path or not file_path.startswith('/workspace/'):
+                continue
+                
+            # Skip files we don't want to sync back
+            if any(skip in file_path for skip in ['.git/', '__pycache__/', '.pyc', '/tmp/', '/opt/conda/']):
+                continue
+            
+            # Calculate relative path from workspace
+            rel_path = file_path[11:]  # Remove '/workspace/' prefix
+            host_path = os.path.join(self.project_root, rel_path)
+            
+            # Check if this is a new file
+            is_new_file = not os.path.exists(host_path)
+            
+            # Create directory if needed
+            host_dir = os.path.dirname(host_path)
+            if host_dir:
+                os.makedirs(host_dir, exist_ok=True)
+            
+            # Copy the file
+            copy_result = self._run_docker_command([
+                "docker", "cp",
+                f"{self.container_name}:{file_path}",
+                host_path
+            ], check=False)
+            
+            if copy_result and copy_result.returncode == 0:
+                files_copied += 1
+                if is_new_file:
+                    new_files += 1
+                    if not quiet:
+                        print(f"📄 New file: {rel_path}")
+            else:
+                success = False
+        
+        if new_files > 0 and not quiet:
+            print(f"✅ Synced {new_files} new files from container")
+        elif files_copied > 0 and not quiet:
+            # Only show this for manual syncs, not background syncs
+            pass  
         
         return success
 
