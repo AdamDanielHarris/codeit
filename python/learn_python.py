@@ -1082,8 +1082,8 @@ End of function documentation
 
 def cm():
     """
-    Show current variables in the interactive shell.
-    Recreates the "Current variables:" message from shell entry.
+    Show current variables in the interactive shell and display current snippet.
+    Recreates the "Current variables:" message from shell entry and shows the latest snippet.
     """
     # Get current frame's local variables
     frame = sys._getframe(1)
@@ -1115,6 +1115,48 @@ def cm():
             print(f"  {name} = {repr(value)}")
     else:
         print("No local variables defined yet")
+    
+    # Show snippet contents if available
+    global _snippet_messages
+    if _snippet_mode and _snippet_messages:
+        print()
+        print("Snippet Contents:")
+        print("-" * 40)
+        
+        # Read and display the most recent snippet file content
+        try:
+            # Get the most recent snippet message and extract the path
+            recent_message = _snippet_messages[-1]
+            if "practice/" in recent_message:
+                # Extract path from message like "📝 Snippet exported: practice/pandas/001.py"
+                file_path = recent_message.split(": ")[1]
+                
+                # Convert to absolute path
+                if not file_path.startswith('/'):
+                    # Relative path - convert to absolute
+                    if os.path.exists('/workspace'):
+                        # We're in Docker
+                        abs_path = os.path.join('/workspace', file_path)
+                    else:
+                        # We're on host
+                        project_root = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
+                        abs_path = os.path.join(project_root, file_path)
+                else:
+                    abs_path = file_path
+                
+                # Read and display the snippet content
+                if os.path.exists(abs_path):
+                    with open(abs_path, 'r') as f:
+                        content = f.read()
+                    print(content)
+                    print("-" * 40)
+                    print(f"📁 Saved to: {file_path}")
+                else:
+                    print(f"⚠️  Snippet file not found: {abs_path}")
+        except Exception as e:
+            print(f"⚠️  Error reading snippet: {e}")
+        
+        print()
 
 # Python Environment Management Functions (based on temp/functions patterns)
 
@@ -1823,7 +1865,7 @@ def shortcuts():
     print("  cs('topic', full=True) - Save comprehensive help to organized files")
     print("  hf('function')    - Get function documentation & signature (e.g., hf('df.combine'))")
     print("  hf('function', save=True) - Get function docs & save to file")
-    print("  cm()              - Show current variables/memory")
+    print("  cm()              - Show current variables & snippet")
     print("  shortcuts()       - Show this help (alias: sc())")
     print()
     print("💾 Snippet Management:")
@@ -1841,7 +1883,7 @@ def shortcuts():
     print("  >>> cs('python/list', full=True) # Save comprehensive list help to file")
     print("  >>> hf('df.combine')             # Get DataFrame.combine documentation")
     print("  >>> hf('len', save=True)         # Get len() function help and save to file")
-    print("  >>> cm()                         # Show current variables")
+    print("  >>> cm()                         # Show current variables & snippet")
     print("  >>> save()                       # Save current snippet")
     print("=" * 60)
     print()
