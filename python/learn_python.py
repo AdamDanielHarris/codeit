@@ -448,49 +448,72 @@ def detect_legacy_conflicts():
     
     return False
 
-def run_in_managed_environment(func_key, copy_mode=False):
+def run_function_directly(func_key):
+    """Run a function directly on the host."""
+    try:
+        func_info = AVAILABLE_FUNCTIONS.get(func_key)
+        if not func_info:
+            print(f"❌ Unknown function: {func_key}")
+            return False
+        
+        # Extract the function object from the tuple (description, func)
+        description, func = func_info
+        if not func:
+            print(f"❌ Function {func_key} is not callable")
+            return False
+        
+        print(f"🚀 Running {func_key} directly on host...")
+        func()
+        return True
+    except Exception as e:
+        print(f"❌ Error running function directly: {e}")
+        return False
+
+def run_in_managed_environment(func_key, copy_mode=False, force_docker=False, no_docker=False):
     """
     Run a function in a Docker-managed environment.
     """
     try:
-        manager = DockerEnvironmentManager()
+        # If Docker is explicitly disabled, run directly on host
+        if no_docker:
+            print("🏠 Running directly on host (Docker disabled with --no-docker)")
+            return run_function_directly(func_key)
         
-        # Ensure environment is set up
-        if not manager.setup_environment(copy_mode=copy_mode):
-            print("❌ Failed to set up Docker environment")
-            return False
-        
-        print(f"🔄 Running {func_key} in Docker environment...")
-        if copy_mode:
-            print("📋 Using copy mode for file operations")
-        script_path = os.path.abspath(__file__)
-        
-        # Build arguments list, preserving interactive mode flags
-        args = ['--functions', func_key]
-        
-        # Add copy mode flag if enabled
-        if copy_mode:
-            args.append('--cm')
-        
-        # Add interactive mode flags if they're set
-        if hasattr(check_interactive_mode, 'interactive_mode') and check_interactive_mode.interactive_mode:
-            args.append('--interactive')
-        
-        if hasattr(check_interactive_mode, 'step_mode') and check_interactive_mode.step_mode:
-            args.append('--step')
+        # If Docker is forced, or if Docker is available and not disabled
+        if force_docker:
+            print("🔄 Running in Docker environment (forced with --force-docker)")
+            manager = DockerEnvironmentManager()
             
-        if hasattr(check_interactive_mode, 'always_show_docs') and check_interactive_mode.always_show_docs:
-            args.append('--doc')
+            # Ensure environment is set up
+            if not manager.setup_environment(copy_mode=copy_mode):
+                print("❌ Failed to set up Docker environment")
+                return False
             
-        # Add snippet export flag if enabled
-        if _snippet_mode:
-            args.append('--snip')
+            # Run the function in Docker
+            print(f"🐳 Running {func_key} in Docker container...")
+            script_path = os.path.abspath(__file__)
+            args = ['--functions', func_key]
+            
+            # Add interactive mode flags if they're set
+            if hasattr(check_interactive_mode, 'interactive_mode') and check_interactive_mode.interactive_mode:
+                args.append('--interactive')
+            if hasattr(check_interactive_mode, 'step_mode') and check_interactive_mode.step_mode:
+                args.append('--step')
+            if hasattr(check_interactive_mode, 'always_show_docs') and check_interactive_mode.always_show_docs:
+                args.append('--doc')
+            if _snippet_mode:
+                args.append('--snip')
+            if copy_mode:
+                args.append('--cm')
+            
+            result = manager.run_python_script(script_path, *args)
+            return result is not None and result.returncode == 0
         
-        result = manager.run_python_script(script_path, *args)
-        return result is not None and result.returncode == 0
+        # Neither forced nor disabled, try running directly first
+        return run_function_directly(func_key)
         
     except Exception as e:
-        print(f"❌ Error running in Docker environment: {e}")
+        print(f"❌ Error running in managed environment: {e}")
         return False
 
 # Main function
@@ -519,7 +542,13 @@ def main():
     parser.add_argument('--no-snip', action='store_true',
                        help='Disable snippet export')
     parser.add_argument('--cm', '--copy-mode', action='store_true',
-                       help='Use file copying instead of volume mounting (for restricted environments)')
+                      help='Use file copying instead of volume mounting (for restricted environments)')
+    
+    parser.add_argument('--force-docker', action='store_true',
+                      help='Force using Docker for all operations, regardless of environment detection')
+    
+    parser.add_argument('--no-docker', action='store_true',
+                      help='Disable Docker usage completely and run directly on host')
     
     # Python Environment Management Options
     parser.add_argument('--setup-env', action='store_true',
@@ -537,7 +566,10 @@ def main():
     
     # Handle Python environment management options first
     if args.setup_env:
-        setup_mamba_environment(copy_mode=getattr(args, 'cm', False))
+        copy_mode = getattr(args, 'cm', False)
+        force_docker = getattr(args, 'force_docker', False)
+        no_docker = getattr(args, 'no_docker', False)
+        setup_mamba_environment(copy_mode=copy_mode, force_docker=force_docker, no_docker=no_docker)
         return
     
     if args.activate_env:
@@ -580,8 +612,24 @@ def main():
     global _snippet_mode
     _snippet_mode = args.snip and not args.no_snip
     
-    # Set copy mode from args
+    # Set copy mode and Docker flags from args
     copy_mode = getattr(args, 'cm', False)
+    force_docker = getattr(args, 'force_docker', False)
+    no_docker = getattr(args, 'no_docker', False)
+
+    # Prevent using both flags at the same time
+    if force_docker and no_docker:
+        print("❌ Error: --force-docker and --no-docker cannot be used at the same time.")
+        return
+
+    if force_docker:
+        print("⚙️ Force Docker mode enabled - all functions will run in Docker container")
+    
+    if no_docker:
+        print("🏠 No Docker mode enabled - all functions will run directly on host")
+        
+    if copy_mode:
+        print("📋 Copy mode enabled - files will be copied instead of mounted")
     
     if check_interactive_mode.interactive_mode:
         print("Interactive mode enabled - you'll be dropped into a Python shell at breakpoints")
@@ -620,38 +668,10 @@ def main():
             # Set current module for snippet export
             if _snippet_mode:
                 set_snippet_module(func_key)
-            
-            # Check for environment conflicts before running pandas
-            if func_key == 'pandas':
-                has_conflicts, conflict_list = detect_environment_conflicts()
-                if has_conflicts:
-                    print("⚠️  Environment conflicts detected:")
-                    for conflict in conflict_list:
-                        print(f"   - {conflict}")
-                    print("\n💡 Attempting to run pandas in Docker environment...")
-                    if run_in_managed_environment(func_key, copy_mode=copy_mode):
-                        print("✅ Successfully ran pandas in Docker environment!")
-                        continue
-                    else:
-                        print("❌ Could not run in Docker environment.")
-                        print("🔧 Please set up environment: python python/learn_python.py --setup-env")
-                        if not copy_mode:
-                            print("💡 For restricted environments, try: --cm or --copy-mode")
-                        print("=" * 60)
-                        continue
-                
-                # Also check for legacy conflicts (directory-based)
-                if detect_legacy_conflicts():
-                    print("\n💡 Attempting to run pandas in Docker environment...")
-                    if run_in_managed_environment(func_key, copy_mode=copy_mode):
-                        print("✅ Successfully ran pandas in Docker environment!")
-                        continue
-            
-            # Handle functions that support step mode
-            if func_key in ['csv_module', 'pandas_module'] and hasattr(func, '__code__') and 'step' in func.__code__.co_varnames:
-                func(step=getattr(check_interactive_mode, 'step_mode', False))
-            else:
-                func()
+
+            # Run the function in the appropriate environment
+            if not run_in_managed_environment(func_key, copy_mode=copy_mode, force_docker=force_docker, no_docker=no_docker):
+                print(f"❌ Failed to run {func_key}.")
             
             # Show any snippet messages that were collected during this function
             show_all_snippet_messages()
@@ -1027,7 +1047,7 @@ def save_function_help_to_file(function_name, signature_str, docstring):
     
     # Create well-formatted content
     formatted_content = f"""Function Documentation: {function_name}
-Generated: {datetime.datetime.now().strftime('%Y-%m-%d %H:%M:%S')}
+Generated: {datetime.now().strftime('%Y-%m-%d %H:%M:%S')}
 Source: Python inspection
 {'=' * 60}
 
@@ -1247,17 +1267,27 @@ def show_mamba_activation():
     except Exception as e:
         print(f"❌ Error checking Docker environment: {e}")
 
-def setup_mamba_environment(copy_mode=False):
+def setup_mamba_environment(copy_mode=False, force_docker=False, no_docker=False):
     """Set up a Docker environment with all required packages."""
     try:
+        if no_docker:
+            print("🚫 Docker usage explicitly disabled with --no-docker flag")
+            print("📝 Running all Python operations directly on host")
+            return True
+            
         manager = DockerEnvironmentManager()
         
         print("🚀 Setting up Docker environment for Python learning...")
+        if force_docker:
+            print("⚙️ Docker usage forced with --force-docker flag")
+            print("📝 All Python operations will use Docker container")
+            
         if copy_mode:
             print("📋 Copy mode enabled - using file copying instead of volume mounting")
+            
         print("This will create a Docker container with Python 3.11, numpy, pandas, matplotlib, and more.")
         
-        if manager.setup_environment(copy_mode=copy_mode):
+        if manager.setup_environment(copy_mode=copy_mode, force_docker=force_docker):
             print("\n✅ Docker environment set up successfully!")
             if copy_mode:
                 print("📁 Container ready for file copying operations")

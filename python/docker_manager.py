@@ -20,6 +20,7 @@ class DockerEnvironmentManager:
         self.script_dir = Path(__file__).parent
         self.project_root = self.script_dir.parent
         self.copy_mode = False  # Default to volume mounting
+        self.force_docker = False  # Default to auto-detection
         
     def _run_docker_command(self, cmd, capture_output=True, check=True):
         """Run a docker command and return the result."""
@@ -360,14 +361,14 @@ class DockerEnvironmentManager:
             return result.stdout.strip()
         return "/opt/conda/envs/python-learning/bin/python"
     
-    def setup_environment(self, copy_mode=False, auto_fallback=True):
+    def setup_environment(self, copy_mode=False):
         """Set up the complete Docker environment."""
         if not self.is_docker_available():
             print("❌ Docker is not available or not running")
             print("💡 Please install Docker and ensure it's running")
             return False
         
-        # Store copy mode for later use
+        # Store copy_mode for later use
         self.copy_mode = copy_mode
         
         # Build image if it doesn't exist
@@ -378,27 +379,8 @@ class DockerEnvironmentManager:
         
         # Try to start container 
         if not self.start_container():
-            # If we failed and we're not already in copy mode, try copy mode
-            if not copy_mode and auto_fallback:
-                print("\n🔄 Mount mode failed, trying copy mode as fallback...")
-                print("📋 Copy mode: files will be copied instead of mounted")
-                
-                # Switch to copy mode and try again
-                self.copy_mode = True
-                
-                # Remove failed container if it exists
-                if self.container_exists():
-                    self._run_docker_command(["docker", "rm", "-f", self.container_name])
-                
-                # Try again with copy mode
-                if not self.start_container():
-                    print("❌ Failed to start Docker container even with copy mode")
-                    return False
-                else:
-                    print("✅ Copy mode fallback successful!")
-            else:
-                print("❌ Failed to start Docker container")
-                return False
+            print("❌ Failed to start Docker container")
+            return False
         
         print("✅ Docker environment is ready!")
         if self.copy_mode:
@@ -590,10 +572,6 @@ def detect_environment_conflicts():
                 conflicts.append("pandas: Build/installation conflicts")
     except ImportError:
         pass
-    
-    # Check for system incompatibilities (like NixOS)
-    if os.path.exists('/etc/nixos'):
-        conflicts.append("NixOS detected: Dynamically linked executables may not work")
     
     # Check for multiple Python installations
     python_paths = []
