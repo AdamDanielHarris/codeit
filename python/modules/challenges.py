@@ -23,33 +23,33 @@ def snippet_section(code_lines, description=None):
     """Placeholder function - will be replaced by main script's version"""
     pass
 
-def fibonacci_recursive(position):
-    """Basic recursive Fibonacci - inefficient for large position."""
-    if position <= 1:
-        return position
-    return fibonacci_recursive(position-1) + fibonacci_recursive(position-2)
+def fibonacci_recursive(pos):
+    """Basic recursive Fibonacci - inefficient for large pos."""
+    if pos <= 1:
+        return pos
+    return fibonacci_recursive(pos-1) + fibonacci_recursive(pos-2)
 
-def fibonacci_memoized(position, memo=None):
+def fibonacci_memoized(pos, memo=None):
     """Memoized Fibonacci - much more efficient."""
     if memo is None:
         memo = {}
     
-    if position in memo:
-        return memo[position]
+    if pos in memo:
+        return memo[pos]
     
-    if position <= 1:
-        return position
+    if pos <= 1:
+        return pos
     
-    memo[position] = fibonacci_memoized(position-1, memo) + fibonacci_memoized(position-2, memo)
-    return memo[position]
+    memo[pos] = fibonacci_memoized(pos-1, memo) + fibonacci_memoized(pos-2, memo)
+    return memo[pos]
 
-def fibonacci_iterative(position):
+def fibonacci_iterative(pos):
     """Iterative Fibonacci - most efficient for this problem."""
-    if position <= 1:
-        return position
+    if pos <= 1:
+        return pos
     
     a, b = 0, 1
-    for _ in range(2, position + 1):
+    for _ in range(2, pos + 1):
         a, b = b, a + b
     return b
 
@@ -127,31 +127,31 @@ def challenges_module(step=False):
         print(f"   Saved:     {recursive_time - memoized_time:.4f}s")
     
     print("\n💡 KEY INSIGHT:")
-    print("   • Recursive: O(2^position) - exponential time complexity")
-    print("   • Memoized:  O(position) - linear time complexity")
+    print("   • Recursive: O(2^pos) - exponential time complexity")
+    print("   • Memoized:  O(pos) - linear time complexity")
     print("   • The difference grows dramatically with larger inputs!")
     
     snippet_section([
         "# Fibonacci: Recursive vs Memoized Comparison",
         "",
         "# Method 1: Basic Recursive (SLOW - exponential time)",
-        "def fibonacci_recursive(position):",
-        "    \"\"\"Basic recursive Fibonacci - inefficient for large position.\"\"\"",
-        "    if position <= 1:",
-        "        return position",
-        "    return fibonacci_recursive(position-1) + fibonacci_recursive(position-2)",
+        "def fibonacci_recursive(pos):",
+        "    \"\"\"Basic recursive Fibonacci - inefficient for large pos.\"\"\"",
+        "    if pos <= 1:",
+        "        return pos",
+        "    return fibonacci_recursive(pos-1) + fibonacci_recursive(pos-2)",
         "",
         "# Method 2: Memoized Recursive (FAST - linear time)",
-        "def fibonacci_memoized(position, memo=None):",
+        "def fibonacci_memoized(pos, memo=None):",
         "    \"\"\"Memoized Fibonacci - much more efficient.\"\"\"",
         "    if memo is None:",
         "        memo = {}",
-        "    if position in memo:",
-        "        return memo[position]",
-        "    if position <= 1:",
-        "        return position",
-        "    memo[position] = fibonacci_memoized(position-1, memo) + fibonacci_memoized(position-2, memo)",
-        "    return memo[position]",
+        "    if pos in memo:",
+        "        return memo[pos]",
+        "    if pos <= 1:",
+        "        return pos",
+        "    memo[pos] = fibonacci_memoized(pos-1, memo) + fibonacci_memoized(pos-2, memo)",
+        "    return memo[pos]",
         "",
         "# Test both methods (recursive commented out for performance)",
         f"pos = {pos}",
