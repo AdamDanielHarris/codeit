@@ -85,7 +85,8 @@ python/
     ├── basic_data_structures.py
     ├── advanced_data_structures.py
     ├── csv_module.py
-    └── pandas_module.py
+    ├── pandas_module.py
+    └── challenges.py
 ```
 
 ### Generated Outputs
@@ -94,7 +95,8 @@ practice/                   # Auto-generated practice files
 ├── basic/                 # Basic data structure examples
 ├── advanced/              # Advanced structure examples  
 ├── csv/                   # CSV handling examples
-└── pandas/                # Pandas analysis examples
+├── pandas/                # Pandas analysis examples
+└── challenges/            # Programming challenge examples
 
 help/                      # Help system cache
 └── [topic]/               # Cached cheat sheets and documentation

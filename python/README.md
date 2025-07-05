@@ -47,7 +47,7 @@ This project uses a **Docker-based environment management system** tha### Module
 python python/learn_python.py
 
 # Run specific modules
-python python/learn_python.py --functions basic advanced pandas
+python python/learn_python.py --functions basic advanced pandas challenges
 
 # Interactive mode with breakpoints
 python python/learn_python.py --interactive --functions pandas

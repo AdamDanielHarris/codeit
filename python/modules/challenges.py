@@ -91,9 +91,59 @@ def challenges_module(step=False):
     result_iterative = fibonacci_iterative(n)
     print(f"Iterative approach: {result_iterative}")
     
+    # Performance comparison demonstration
+    print("\n⏱️  PERFORMANCE COMPARISON")
+    print("=" * 40)
+    print("Let's see the difference memoization makes!")
+    
+    import time
+    
+    # Test with a larger number to see the difference
+    test_n = 30
+    print(f"\nTesting with Fibonacci({test_n}):")
+    
+    # Time the recursive approach (WARNING: this gets slow!)
+    print("🐌 Testing recursive approach...")
+    start_time = time.time()
+    recursive_result = fibonacci_recursive(test_n)
+    recursive_time = time.time() - start_time
+    print(f"   Result: {recursive_result}")
+    print(f"   Time taken: {recursive_time:.4f} seconds")
+    
+    # Time the memoized approach
+    print("🚀 Testing memoized approach...")
+    start_time = time.time()
+    memoized_result = fibonacci_memoized(test_n)
+    memoized_time = time.time() - start_time
+    print(f"   Result: {memoized_result}")
+    print(f"   Time taken: {memoized_time:.6f} seconds")
+    
+    # Calculate speedup
+    if memoized_time > 0:
+        speedup = recursive_time / memoized_time
+        print(f"\n🎯 MEMOIZATION SPEEDUP: {speedup:.1f}x faster!")
+        print(f"   Recursive: {recursive_time:.4f}s")
+        print(f"   Memoized:  {memoized_time:.6f}s")
+        print(f"   Saved:     {recursive_time - memoized_time:.4f}s")
+    
+    print("\n💡 KEY INSIGHT:")
+    print("   • Recursive: O(2^n) - exponential time complexity")
+    print("   • Memoized:  O(n) - linear time complexity")
+    print("   • The difference grows dramatically with larger inputs!")
+    
     snippet_section([
-        "# Fibonacci with memoization",
+        "# Fibonacci: Recursive vs Memoized Comparison",
+        "",
+        "# Method 1: Basic Recursive (SLOW - exponential time)",
+        "def fibonacci_recursive(n):",
+        "    \"\"\"Basic recursive Fibonacci - inefficient for large n.\"\"\"",
+        "    if n <= 1:",
+        "        return n",
+        "    return fibonacci_recursive(n-1) + fibonacci_recursive(n-2)",
+        "",
+        "# Method 2: Memoized Recursive (FAST - linear time)",
         "def fibonacci_memoized(n, memo=None):",
+        "    \"\"\"Memoized Fibonacci - much more efficient.\"\"\"",
         "    if memo is None:",
         "        memo = {}",
         "    if n in memo:",
@@ -103,9 +153,27 @@ def challenges_module(step=False):
         "    memo[n] = fibonacci_memoized(n-1, memo) + fibonacci_memoized(n-2, memo)",
         "    return memo[n]",
         "",
-        f"result = fibonacci_memoized({n})",
-        f"print(f'Fibonacci({n}) = {{result}}')"
-    ], "Fibonacci with memoization")
+        "# Test both methods (recursive commented out for performance)",
+        f"n = {n}",
+        "",
+        "# WARNING: Don't run recursive version for large n - it's very slow!",
+        "# result_recursive = fibonacci_recursive(n)",
+        "# print(f'Recursive Fibonacci({n}) = {result_recursive}')",
+        "",
+        "# This one is fast and safe to run:",
+        "result_memoized = fibonacci_memoized(n)",
+        f"print(f'Memoized Fibonacci({n}) = {{result_memoized}}')",
+        "",
+        "# To see the performance difference, try timing both with small numbers:",
+        "# import time",
+        "# start = time.time()",
+        "# fibonacci_recursive(25)  # Takes noticeable time",
+        "# print(f'Recursive time: {time.time() - start:.4f}s')",
+        "",
+        "# start = time.time()",
+        "# fibonacci_memoized(25)   # Nearly instant",
+        "# print(f'Memoized time: {time.time() - start:.6f}s')"
+    ], "Fibonacci recursive vs memoized comparison")
     
     check_interactive_mode()
     
