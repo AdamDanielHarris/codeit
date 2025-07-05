@@ -23,33 +23,33 @@ def snippet_section(code_lines, description=None):
     """Placeholder function - will be replaced by main script's version"""
     pass
 
-def fibonacci_recursive(n):
-    """Basic recursive Fibonacci - inefficient for large n."""
-    if n <= 1:
-        return n
-    return fibonacci_recursive(n-1) + fibonacci_recursive(n-2)
+def fibonacci_recursive(position):
+    """Basic recursive Fibonacci - inefficient for large position."""
+    if position <= 1:
+        return position
+    return fibonacci_recursive(position-1) + fibonacci_recursive(position-2)
 
-def fibonacci_memoized(n, memo=None):
+def fibonacci_memoized(position, memo=None):
     """Memoized Fibonacci - much more efficient."""
     if memo is None:
         memo = {}
     
-    if n in memo:
-        return memo[n]
+    if position in memo:
+        return memo[position]
     
-    if n <= 1:
-        return n
+    if position <= 1:
+        return position
     
-    memo[n] = fibonacci_memoized(n-1, memo) + fibonacci_memoized(n-2, memo)
-    return memo[n]
+    memo[position] = fibonacci_memoized(position-1, memo) + fibonacci_memoized(position-2, memo)
+    return memo[position]
 
-def fibonacci_iterative(n):
+def fibonacci_iterative(position):
     """Iterative Fibonacci - most efficient for this problem."""
-    if n <= 1:
-        return n
+    if position <= 1:
+        return position
     
     a, b = 0, 1
-    for _ in range(2, n + 1):
+    for _ in range(2, position + 1):
         a, b = b, a + b
     return b
 
@@ -76,19 +76,19 @@ def challenges_module(step=False):
     print("-" * 30)
     print("Calculate Fibonacci numbers using different approaches")
     
-    n = 10
-    print(f"Calculating Fibonacci({n}):")
+    pos = 10
+    print(f"Calculating Fibonacci({pos}):")
     
     # Show the basic recursive approach (inefficient)
-    result_recursive = fibonacci_recursive(n)
+    result_recursive = fibonacci_recursive(pos)
     print(f"Recursive approach: {result_recursive}")
     
     # Show memoized approach (efficient)
-    result_memoized = fibonacci_memoized(n)
+    result_memoized = fibonacci_memoized(pos)
     print(f"Memoized approach: {result_memoized}")
     
     # Show iterative approach (most efficient)
-    result_iterative = fibonacci_iterative(n)
+    result_iterative = fibonacci_iterative(pos)
     print(f"Iterative approach: {result_iterative}")
     
     # Performance comparison demonstration
@@ -99,13 +99,13 @@ def challenges_module(step=False):
     import time
     
     # Test with a larger number to see the difference
-    test_n = 30
-    print(f"\nTesting with Fibonacci({test_n}):")
+    test_pos = 30
+    print(f"\nTesting with Fibonacci({test_pos}):")
     
     # Time the recursive approach (WARNING: this gets slow!)
     print("🐌 Testing recursive approach...")
     start_time = time.time()
-    recursive_result = fibonacci_recursive(test_n)
+    recursive_result = fibonacci_recursive(test_pos)
     recursive_time = time.time() - start_time
     print(f"   Result: {recursive_result}")
     print(f"   Time taken: {recursive_time:.4f} seconds")
@@ -113,7 +113,7 @@ def challenges_module(step=False):
     # Time the memoized approach
     print("🚀 Testing memoized approach...")
     start_time = time.time()
-    memoized_result = fibonacci_memoized(test_n)
+    memoized_result = fibonacci_memoized(test_pos)
     memoized_time = time.time() - start_time
     print(f"   Result: {memoized_result}")
     print(f"   Time taken: {memoized_time:.6f} seconds")
@@ -127,42 +127,42 @@ def challenges_module(step=False):
         print(f"   Saved:     {recursive_time - memoized_time:.4f}s")
     
     print("\n💡 KEY INSIGHT:")
-    print("   • Recursive: O(2^n) - exponential time complexity")
-    print("   • Memoized:  O(n) - linear time complexity")
+    print("   • Recursive: O(2^position) - exponential time complexity")
+    print("   • Memoized:  O(position) - linear time complexity")
     print("   • The difference grows dramatically with larger inputs!")
     
     snippet_section([
         "# Fibonacci: Recursive vs Memoized Comparison",
         "",
         "# Method 1: Basic Recursive (SLOW - exponential time)",
-        "def fibonacci_recursive(n):",
-        "    \"\"\"Basic recursive Fibonacci - inefficient for large n.\"\"\"",
-        "    if n <= 1:",
-        "        return n",
-        "    return fibonacci_recursive(n-1) + fibonacci_recursive(n-2)",
+        "def fibonacci_recursive(position):",
+        "    \"\"\"Basic recursive Fibonacci - inefficient for large position.\"\"\"",
+        "    if position <= 1:",
+        "        return position",
+        "    return fibonacci_recursive(position-1) + fibonacci_recursive(position-2)",
         "",
         "# Method 2: Memoized Recursive (FAST - linear time)",
-        "def fibonacci_memoized(n, memo=None):",
+        "def fibonacci_memoized(position, memo=None):",
         "    \"\"\"Memoized Fibonacci - much more efficient.\"\"\"",
         "    if memo is None:",
         "        memo = {}",
-        "    if n in memo:",
-        "        return memo[n]",
-        "    if n <= 1:",
-        "        return n",
-        "    memo[n] = fibonacci_memoized(n-1, memo) + fibonacci_memoized(n-2, memo)",
-        "    return memo[n]",
+        "    if position in memo:",
+        "        return memo[position]",
+        "    if position <= 1:",
+        "        return position",
+        "    memo[position] = fibonacci_memoized(position-1, memo) + fibonacci_memoized(position-2, memo)",
+        "    return memo[position]",
         "",
         "# Test both methods (recursive commented out for performance)",
-        f"n = {n}",
+        f"pos = {pos}",
         "",
-        "# WARNING: Don't run recursive version for large n - it's very slow!",
-        "# result_recursive = fibonacci_recursive(n)",
-        "# print(f'Recursive Fibonacci({n}) = {result_recursive}')",
+        "# WARNING: Don't run recursive version for large pos - it's very slow!",
+        "# result_recursive = fibonacci_recursive(pos)",
+        "# print(f'Recursive Fibonacci({pos}) = {result_recursive}')",
         "",
         "# This one is fast and safe to run:",
-        "result_memoized = fibonacci_memoized(n)",
-        f"print(f'Memoized Fibonacci({n}) = {{result_memoized}}')",
+        "result_memoized = fibonacci_memoized(pos)",
+        f"print(f'Memoized Fibonacci({pos}) = {{result_memoized}}')",
         "",
         "# To see the performance difference, try timing both with small numbers:",
         "# import time",
