@@ -17,6 +17,7 @@ CodeIt is a Docker-based Python learning environment designed for cross-platform
 - **Advanced Data Structures**: Collections, dataclasses, namedtuples with hands-on examples
 - **CSV Module**: File handling with DictReader/DictWriter and step-through learning
 - **Pandas Module**: Data analysis with DataFrames, filtering, and statistical operations
+- **Challenges Module**: Programming challenges and algorithmic problem solving with memoization
 
 ### 💻 **Enhanced Interactive Shell**
 - **Breakpoint System**: Stop at key points for hands-on exploration

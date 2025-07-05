@@ -22,6 +22,7 @@ This project uses a **Docker-based environment management system** tha### Module
    - `advanced_data_structures.py` - Collections, dataclasses, namedtuples
    - `csv_module.py` - CSV file handling
    - `pandas_module.py` - Data analysis with pandas
+   - `challenges.py` - Programming challenges and algorithmic problem solving
 
 ### How It Works
 
@@ -156,6 +157,13 @@ When conflicts are detected:
 - Series operations
 - File I/O with automatic container-friendly paths
 
+### Challenges Module
+- Algorithmic problem solving
+- Memoization and dynamic programming
+- Common programming patterns
+- Performance optimization techniques
+- Step-by-step problem breakdowns
+
 ## Interactive Shell Features
 
 When using `--interactive` mode:
@@ -194,7 +202,8 @@ python/
     ├── basic_data_structures.py
     ├── advanced_data_structures.py
     ├── csv_module.py
-    └── pandas_module.py
+    ├── pandas_module.py
+    └── challenges.py
 ```
 
 This architecture provides a robust Python learning environment that has been tested on Linux distributions and works regardless of many common system configuration issues.
