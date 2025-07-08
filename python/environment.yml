@@ -10,6 +10,13 @@ dependencies:
   - seaborn
   - jupyter
   - ipython
+  - sqlalchemy
   - pip
   - pip:
     - debugpy
+    - faker
+    - psycopg2-binary
+    - pymongo
+    - redis
+    - neo4j
+    - faker

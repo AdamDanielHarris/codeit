@@ -23,6 +23,8 @@ This project uses a **Docker-based environment management system** tha### Module
    - `csv_module.py` - CSV file handling
    - `pandas_module.py` - Data analysis with pandas
    - `challenges.py` - Programming challenges and algorithmic problem solving
+   - `challenges_2.py` - Advanced programming challenges for production scenarios
+   - `database.py` - Database operations and patterns
 
 ### How It Works
 
@@ -47,7 +49,7 @@ This project uses a **Docker-based environment management system** tha### Module
 python python/learn_python.py
 
 # Run specific modules
-python python/learn_python.py --functions basic advanced pandas challenges
+python python/learn_python.py --functions basic advanced pandas challenges challenges_2
 
 # Interactive mode with breakpoints
 python python/learn_python.py --interactive --functions pandas
@@ -163,6 +165,14 @@ When conflicts are detected:
 - Common programming patterns
 - Performance optimization techniques
 - Step-by-step problem breakdowns
+
+### Challenges 2 Module
+- Advanced production-scenario challenges
+- System design patterns and optimization
+- Cloud security event processing
+- Database query optimization
+- Rate limiting and streaming data processing
+- Real-world problem solving for technical interviews
 
 ## Interactive Shell Features
 

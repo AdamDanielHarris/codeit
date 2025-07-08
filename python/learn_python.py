@@ -1607,10 +1607,10 @@ def save():
                 with open(abs_path, 'r') as f:
                     content = f.read()
                 
-                # Generate unique filename with timestamp
+                # Generate unique filename with timestamp and snippet number
                 import datetime
                 timestamp = datetime.datetime.now().strftime('%Y%m%d_%H%M%S')
-                base_name = f"{_current_module}_snippet_{timestamp}.py"
+                base_name = f"{_current_module}_snippet_{_snippet_counter}_{timestamp}.py"
                 save_path = os.path.join(save_dir, base_name)
                 
                 # Write the saved copy
@@ -1640,53 +1640,118 @@ def save():
     except Exception as e:
         print(f"❌ Error saving snippet: {e}")
 
-def saved():
+def saved(module=None, snippet_num=None):
     """
-    List the most recent saved snippet files (excluding default numbered files).
-    Shows only files saved explicitly with save() function.
+    List the most recent saved snippet files for current snippet number.
+    By default, shows only snippets from the current snippet number being worked on.
+    
+    Args:
+        module (str, optional): Module name to list snippets for. 
+                               Defaults to current module if available.
+        snippet_num (int, optional): Specific snippet number to show. 
+                                   If None, tries to detect from current file.
+                                   Use 'all' to show all snippets.
     """
-    if not _current_module:
-        print("❌ No module context available.")
+    target_module = module or _current_module
+    
+    if not target_module:
+        print("❌ No module specified and no current module context available.")
+        print("💡 Usage: saved() for current module or saved('module_name') for specific module")
         return
+
+    # Try to detect current snippet number from active file if not specified
+    current_snippet_num = snippet_num
+    if current_snippet_num is None:
+        current_snippet_num = detect_current_snippet_number()
+        if current_snippet_num:
+            print(f"💡 Showing snippets for current snippet number: {current_snippet_num}")
+            print("💡 Use saved('module', 'all') to show all snippets")
     
     try:
         # Determine the practice directory
         if os.path.exists('/workspace'):
             # We're in Docker
-            practice_dir = os.path.join('/workspace/practice', _current_module)
+            practice_dir = os.path.join('/workspace/practice', target_module)
         else:
             # We're on host
-            practice_dir = os.path.join(os.path.dirname(__file__), '..', 'practice', _current_module)
+            practice_dir = os.path.join(os.path.dirname(__file__), '..', 'practice', target_module)
         
         if not os.path.exists(practice_dir):
-            print(f"📂 No saved snippets found for {_current_module} module.")
+            print(f"📂 No saved snippets found for {target_module} module.")
             print(f"💡 Practice directory: {practice_dir}")
             return
         
-        # Get all Python files, excluding default numbered files (001.py, 002.py, etc.)
+        # Get all Python files, focusing on actual snippet files
         files = []
         for filename in os.listdir(practice_dir):
             if filename.endswith('.py'):
-                # Exclude files that are just 3 digits + .py (default numbered files)
-                if not (len(filename) == 6 and filename[:3].isdigit() and filename == f"{filename[:3]}.py"):
+                # Only include files that follow the snippet naming pattern
+                # Pattern: {module}_snippet_{number}_{timestamp}.py or {module}_snippet_{timestamp}.py
+                is_snippet_file = filename.startswith(f"{target_module}_snippet_")
+                is_default_numbered = (len(filename) == 6 and filename[:3].isdigit() and filename == f"{filename[:3]}.py")
+                
+                if is_snippet_file and not is_default_numbered:
+                    # If we're filtering by snippet number, check if this file matches
                     filepath = os.path.join(practice_dir, filename)
+                    
+                    # Extract snippet number for filtering
+                    file_snippet_num = None
+                    try:
+                        # Handle both old and new formats:
+                        # Old: challenges_2_snippet_20250707_162629.py
+                        # New: challenges_2_snippet_1_20250707_162629.py
+                        parts = filename.split('_snippet_')
+                        if len(parts) >= 2:
+                            after_snippet = parts[1]  # "20250707_162629.py" or "1_20250707_162629.py"
+                            underscore_parts = after_snippet.split('_')
+                            if len(underscore_parts) >= 3:
+                                # New format: snippet number is first part
+                                first_part = underscore_parts[0]
+                                if first_part.isdigit():
+                                    file_snippet_num = int(first_part)
+                                else:
+                                    # Old format: extract from timestamp or use 0
+                                    file_snippet_num = 0
+                            else:
+                                file_snippet_num = 0
+                    except:
+                        file_snippet_num = 0
+                    
+                    # Filter by snippet number if specified and not 'all'
+                    if current_snippet_num is not None and current_snippet_num != 'all':
+                        if file_snippet_num != current_snippet_num:
+                            continue  # Skip this file, doesn't match current snippet number
+                    
                     # Get modification time
                     mtime = os.path.getmtime(filepath)
-                    files.append((mtime, filename, filepath))
+                    files.append((mtime, filename, filepath, file_snippet_num))
         
         if not files:
-            print(f"📂 No saved snippets found for {_current_module} module.")
+            if current_snippet_num is not None and current_snippet_num != 'all':
+                print(f"📂 No saved snippets found for {target_module} module, snippet {current_snippet_num}.")
+                print("💡 Use save() in the interactive shell to save the current snippet with timestamp.")
+                print("💡 Use saved('module', 'all') to see all snippets for this module.")
+            else:
+                print(f"📂 No saved snippets found for {target_module} module.")
+                print("💡 Use save() in the interactive shell to save a snippet with timestamp.")
+            return
+        
+        # Sort by snippet number first, then by modification time (newest first)
+        files.sort(key=lambda x: (x[3], -x[0]))  # Sort by snippet_num, then by -mtime
+        
+        if current_snippet_num is not None and current_snippet_num != 'all':
+            print(f"📁 Saved snippets for {target_module} module (snippet {current_snippet_num}):")
+        else:
+            print(f"📁 Saved snippets for {target_module} module:")
+        print("=" * 50)
+        
+        if not files:
+            print("📂 No saved snippets found.")
             print("💡 Use save() in the interactive shell to save a snippet with timestamp.")
             return
         
-        # Sort by modification time (newest first)
-        files.sort(reverse=True)
-        
-        print(f"📁 Saved snippets for {_current_module} module:")
-        print("=" * 50)
-        
-        # Show up to 5 most recent files
-        for i, (mtime, filename, filepath) in enumerate(files[:5]):
+        # Show up to 10 most recent files, grouped by snippet number
+        for i, (mtime, filename, filepath, snippet_num) in enumerate(files[:10]):
             # Convert timestamp to readable format
             import datetime
             time_str = datetime.datetime.fromtimestamp(mtime).strftime('%Y-%m-%d %H:%M:%S')
@@ -1698,17 +1763,24 @@ def saved():
                 project_root = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
                 display_path = os.path.relpath(filepath, project_root)
             
+            # Create a nice display name with snippet number
+            if snippet_num > 0:
+                display_name = f"Snippet {snippet_num}: {display_path}"
+            else:
+                display_name = f"Legacy snippet: {display_path}"
+            
             if i == 0:
-                print(f"🔥 MOST RECENT: {display_path}")
+                print(f"🔥 MOST RECENT: {display_name}")
                 print(f"   Modified: {time_str}")
             else:
-                print(f"{i+1}. {display_path}")
+                print(f"{i+1}. {display_name}")
                 print(f"   Modified: {time_str}")
         
-        if len(files) > 5:
-            print(f"... and {len(files) - 5} more files")
+        if len(files) > 10:
+            print(f"... and {len(files) - 10} more files")
         
-        print("💡 Open the most recent file in your editor to resume your work!")
+        print("💡 Open any snippet file in your editor to resume your work!")
+        print("💡 Files are sorted by snippet number, with the most recent modifications shown first.")
         
     except Exception as e:
         print(f"❌ Error listing saved snippets: {e}")
@@ -1893,6 +1965,47 @@ def sc():
     Alias for shortcuts() - Display all available shortcut functions.
     """
     shortcuts()
+
+def detect_current_snippet_number():
+    """
+    Try to detect the current snippet number from various sources.
+    Returns the snippet number or None if not detectable.
+    """
+    try:
+        # Method 1: Check environment variable (could be set by VS Code extension)
+        if 'VSCODE_ACTIVE_FILE' in os.environ:
+            active_file = os.environ['VSCODE_ACTIVE_FILE']
+            if 'snippet' in active_file:
+                # Extract snippet number from filename
+                filename = os.path.basename(active_file)
+                if '_snippet_' in filename:
+                    parts = filename.split('_snippet_')
+                    if len(parts) >= 2:
+                        after_snippet = parts[1]
+                        underscore_parts = after_snippet.split('_')
+                        if len(underscore_parts) >= 3 and underscore_parts[0].isdigit():
+                            return int(underscore_parts[0])
+        
+        # Method 2: Check current working directory for snippet files
+        cwd = os.getcwd()
+        if 'practice' in cwd:
+            for file in os.listdir(cwd):
+                if file.endswith('.py') and '_snippet_' in file:
+                    parts = file.split('_snippet_')
+                    if len(parts) >= 2:
+                        after_snippet = parts[1]
+                        underscore_parts = after_snippet.split('_')
+                        if len(underscore_parts) >= 3 and underscore_parts[0].isdigit():
+                            return int(underscore_parts[0])
+        
+        # Method 3: Use the global snippet counter if available
+        if _snippet_counter > 0:
+            return _snippet_counter
+            
+    except:
+        pass
+    
+    return None
 
 if __name__ == "__main__":
     main()
