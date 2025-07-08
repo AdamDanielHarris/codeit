@@ -249,8 +249,39 @@ print(f'Data types:\n{df.dtypes}')
 
 ## 🧩 Programming Challenges
 
-### Basic Algorithms
-*See challenges/ practice directory for more examples*
+### Snippet 1: Run-Length Encoding
+```python
+# Programming Challenge: Run-Length Encoding
+# String compression by counting consecutive characters
+# Extracted from interactive learning session
+
+def string_count(string):
+    """
+    Run-length encoding: compress consecutive characters.
+    Example: 'aaabbb' -> '3a3b'
+    """
+    if not string:
+        return ""
+    
+    result = ""
+    counter = 1
+    
+    for index, letter in enumerate(string):
+        if index > 0 and index < len(string):
+            if letter == string[index - 1]:
+                counter = counter + 1
+            else:
+                result = result + str(counter) + string[index - 1]
+                counter = 1
+        if index == len(string) - 1:
+            result = result + str(counter) + letter
+    return result
+
+# Test with multiple strings
+for string in ['aaabbbcba', 'cccsdghqqq', 'qwerrtyyy']:
+    encoded = string_count(string)
+    print(f"'{string}' -> '{encoded}'")
+```
 
 ---
 

@@ -611,9 +611,73 @@ def challenges_module(step=False):
     
     check_interactive_mode()
     
+    # Challenge 11: Run-Length Encoding
+    print("\n🔄 Challenge 11: Run-Length Encoding")
+    print("-" * 30)
+    print("Compress strings by counting consecutive characters")
+    
+    def string_count(string):
+        """
+        Run-length encoding: compress consecutive characters.
+        Example: 'aaabbb' -> '3a3b'
+        """
+        if not string:
+            return ""
+        
+        result = ""
+        counter = 1
+        
+        for index, letter in enumerate(string):
+            if index > 0 and index < len(string):
+                if letter == string[index - 1]:
+                    counter = counter + 1
+                else:
+                    result = result + str(counter) + string[index - 1]
+                    counter = 1
+            if index == len(string) - 1:
+                result = result + str(counter) + letter
+        return result
+    
+    test_strings = ['aaabbbcba', 'cccsdghqqq', 'qwerrtyyy', 'aabbcc', 'abcdef']
+    
+    print("Run-length encoding results:")
+    for string in test_strings:
+        encoded = string_count(string)
+        compression_ratio = len(encoded) / len(string) if string else 0
+        print(f"'{string}' -> '{encoded}' (ratio: {compression_ratio:.2f})")
+    
+    snippet_section([
+        "# Run-Length Encoding",
+        "def string_count(string):",
+        "    \"\"\"Compress consecutive characters with counts.\"\"\"",
+        "    if not string:",
+        "        return \"\"",
+        "    ",
+        "    result = \"\"",
+        "    counter = 1",
+        "    ",
+        "    for index, letter in enumerate(string):",
+        "        if index > 0 and index < len(string):",
+        "            if letter == string[index - 1]:",
+        "                counter = counter + 1",
+        "            else:",
+        "                result = result + str(counter) + string[index - 1]",
+        "                counter = 1",
+        "        if index == len(string) - 1:",
+        "            result = result + str(counter) + letter",
+        "    return result",
+        "",
+        "test_strings = ['aaabbbcba', 'cccsdghqqq', 'qwerrtyyy']",
+        "for string in test_strings:",
+        "    encoded = string_count(string)",
+        "    print(f\"'{string}' -> '{encoded}'\")"
+    ], "Run-length encoding for string compression")
+    
+    check_interactive_mode()
+    
     print("\n🎉 Challenges Complete!")
     print("=" * 50)
-    print("You've practiced 10 fundamental programming challenges:")
+    print("You've practiced 11 fundamental programming challenges:")
     print("1. Fibonacci (Memoization)")
     print("2. Two Sum (Hash Maps)")
     print("3. Palindrome Check (String Processing)")
@@ -624,6 +688,7 @@ def challenges_module(step=False):
     print("8. Anagram Detection (Character Counting)")
     print("9. Remove Duplicates (Two Pointers)")
     print("10. Climbing Stairs (Dynamic Programming)")
+    print("11. Run-Length Encoding (String Compression)")
     print()
     print("💡 Key Techniques Learned:")
     print("   • Memoization for optimization")
@@ -632,6 +697,7 @@ def challenges_module(step=False):
     print("   • Stack for matching problems")
     print("   • Dynamic programming")
     print("   • Divide and conquer")
+    print("   • String manipulation and pattern recognition")
     print()
     print("🚀 Ready for more advanced challenges!")
 

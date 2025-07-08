@@ -365,6 +365,31 @@ def lcs(text1, text2):
     return dp[m][n]
 ```
 
+### String Algorithms
+```python
+# Run-length encoding for string compression
+def string_count(string):
+    """Compress consecutive characters with counts."""
+    if not string:
+        return ""
+    
+    result = ""
+    counter = 1
+    
+    for index, letter in enumerate(string):
+        if index > 0 and index < len(string):
+            if letter == string[index - 1]:
+                counter = counter + 1
+            else:
+                result = result + str(counter) + string[index - 1]
+                counter = 1
+        if index == len(string) - 1:
+            result = result + str(counter) + letter
+    return result
+
+# Example: 'aaabbb' -> '3a3b'
+```
+
 ---
 
 ## 🏗️ Advanced System Design
