@@ -553,6 +553,8 @@ def main():
     # Python Environment Management Options
     parser.add_argument('--setup-env', action='store_true',
                        help='Set up a new Python environment with default packages')
+    parser.add_argument('--rebuild', action='store_true',
+                       help='Force rebuild of Docker image (use with --setup-env after changing environment.yml)')
     parser.add_argument('--activate-env', action='store_true',
                        help='Show how to activate the Python environment')
     parser.add_argument('--install-packages', nargs='+', metavar='PACKAGE',
@@ -569,7 +571,8 @@ def main():
         copy_mode = getattr(args, 'cm', False)
         force_docker = getattr(args, 'force_docker', False)
         no_docker = getattr(args, 'no_docker', False)
-        setup_mamba_environment(copy_mode=copy_mode, force_docker=force_docker, no_docker=no_docker)
+        rebuild = getattr(args, 'rebuild', False)
+        setup_mamba_environment(copy_mode=copy_mode, force_docker=force_docker, no_docker=no_docker, rebuild=rebuild)
         return
     
     if args.activate_env:
@@ -1309,7 +1312,7 @@ def show_mamba_activation():
     except Exception as e:
         print(f"❌ Error checking Docker environment: {e}")
 
-def setup_mamba_environment(copy_mode=False, force_docker=False, no_docker=False):
+def setup_mamba_environment(copy_mode=False, force_docker=False, no_docker=False, rebuild=False):
     """Set up a Docker environment with all required packages."""
     try:
         if no_docker:
@@ -1327,9 +1330,12 @@ def setup_mamba_environment(copy_mode=False, force_docker=False, no_docker=False
         if copy_mode:
             print("📋 Copy mode enabled - using file copying instead of volume mounting")
             
+        if rebuild:
+            print("🔨 Rebuild mode enabled - will rebuild Docker image from scratch")
+            
         print("This will create a Docker container with Python 3.11, numpy, pandas, matplotlib, and more.")
         
-        if manager.setup_environment(copy_mode=copy_mode, force_docker=force_docker):
+        if manager.setup_environment(copy_mode=copy_mode, rebuild=rebuild):
             print("\n✅ Docker environment set up successfully!")
             if copy_mode:
                 print("📁 Container ready for file copying operations")

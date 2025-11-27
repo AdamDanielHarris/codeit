@@ -361,7 +361,7 @@ class DockerEnvironmentManager:
             return result.stdout.strip()
         return "/opt/conda/envs/python-learning/bin/python"
     
-    def setup_environment(self, copy_mode=False):
+    def setup_environment(self, copy_mode=False, rebuild=False):
         """Set up the complete Docker environment."""
         if not self.is_docker_available():
             print("❌ Docker is not available or not running")
@@ -371,7 +371,27 @@ class DockerEnvironmentManager:
         # Store copy_mode for later use
         self.copy_mode = copy_mode
         
-        # Build image if it doesn't exist
+        # Handle rebuild - remove existing image and container
+        if rebuild:
+            print("🔨 Rebuild requested - removing existing container and image...")
+            
+            # Remove container if it exists
+            if self.container_exists():
+                print(f"🗑️  Removing existing container '{self.container_name}'...")
+                if self.is_container_running():
+                    self.stop_container()
+                self.remove_container()
+            
+            # Remove image if it exists
+            if self.image_exists():
+                print(f"🗑️  Removing existing image '{self.image_name}'...")
+                result = self._run_docker_command(["docker", "rmi", self.image_name])
+                if result is None:
+                    print("⚠️  Failed to remove image, but continuing with rebuild...")
+            
+            print("✅ Cleanup complete, proceeding with fresh build...")
+        
+        # Build image if it doesn't exist (or if we just removed it)
         if not self.image_exists():
             if not self.build_image():
                 print("❌ Failed to build Docker image")

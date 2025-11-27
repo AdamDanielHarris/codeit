@@ -9,7 +9,12 @@ dependencies:
   - matplotlib
   - seaborn
   - jupyter
+  - jupyterlab
   - ipython
+  - ipywidgets
+  - nbformat
+  - jupyter_client
+  - notebook
   - sqlalchemy
   - pip
   - pip:
@@ -20,3 +25,5 @@ dependencies:
     - redis
     - neo4j
     - faker
+    - plotly
+    - nbconvert

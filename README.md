@@ -7,22 +7,26 @@ Interactive Python learning with Docker support.
 ```bash
 git clone https://github.com/AdamDanielHarris/codeit.git
 cd codeit
-python python/learn_python.py --interactive
+python3 python/learn_python.py --interactive
 ```
 
 ## Usage
 
 ```bash
 # Run specific modules
-python python/learn_python.py --functions basic pandas
+python3 python/learn_python.py --functions basic pandas
 
 # List available modules
-python python/learn_python.py --list
+python3 python/learn_python.py --list
+
+# Setup/rebuild Docker environment
+python3 python/learn_python.py --setup-env          # Initial setup
+python3 python/learn_python.py --setup-env --rebuild  # Rebuild after changing environment.yml
 
 # Different execution modes
-python python/learn_python.py --cm          # Copy mode (restricted environments)
-python python/learn_python.py --no-docker  # Host Python only
-python python/learn_python.py --force-docker # Force Docker usage
+python3 python/learn_python.py --cm          # Copy mode (restricted environments)
+python3 python/learn_python.py --no-docker  # Host Python only
+python3 python/learn_python.py --force-docker # Force Docker usage
 ```
 
 ## Modules
@@ -31,6 +35,7 @@ python python/learn_python.py --force-docker # Force Docker usage
 - **advanced** - Collections, dataclasses, namedtuples  
 - **csv** - File handling with DictReader/DictWriter
 - **pandas** - DataFrames, filtering, analysis
+- **jupyter** - Notebook creation, IPython features, magic commands
 - **challenges** - Programming problems and algorithms
 - **challenges_2** - System design scenarios
 
