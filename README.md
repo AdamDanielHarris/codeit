@@ -19,14 +19,16 @@ python3 python/learn_python.py --functions basic pandas
 # List available modules
 python3 python/learn_python.py --list
 
-# Setup/rebuild Docker environment
-python3 python/learn_python.py --setup-env          # Initial setup
-python3 python/learn_python.py --setup-env --rebuild  # Rebuild after changing environment.yml
+# Setup environments
+python3 python/learn_python.py --setup-env               # Docker (default)
+python3 python/learn_python.py --setup-env --use-mamba   # Local micromamba (Linux/macOS/Termux)
+python3 python/learn_python.py --setup-env --rebuild     # Rebuild after changing environment.yml
 
-# Different execution modes
-python3 python/learn_python.py --cm          # Copy mode (restricted environments)
-python3 python/learn_python.py --no-docker  # Host Python only
-python3 python/learn_python.py --force-docker # Force Docker usage
+# Execution modes
+python3 python/learn_python.py --use-mamba      # Use local micromamba environment
+python3 python/learn_python.py --force-docker   # Force Docker usage
+python3 python/learn_python.py --no-docker      # Host Python only
+python3 python/learn_python.py --cm             # Copy mode (restricted filesystems)
 ```
 
 ## Modules
@@ -48,7 +50,17 @@ python3 python/learn_python.py --force-docker # Force Docker usage
 
 ## Requirements
 
-- Docker (recommended) or Python 3.7+
+**Option 1: Docker (recommended for ease of use)**
+- Docker Desktop or Docker Engine
 - ~2GB storage for Docker image
+
+**Option 2: Micromamba (recommended for Termux/Android)**
+- curl (for installation)
+- ~1GB storage for environment
+- Works on Linux, macOS, WSL, Termux
+
+**Option 3: System Python**
+- Python 3.7+ with pip
+- Manual package installation
 
 Generated practice files saved to `practice/[module]/`.

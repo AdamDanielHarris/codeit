@@ -15,6 +15,7 @@ import textwrap
 import glob
 from pathlib import Path
 from docker_manager import DockerEnvironmentManager, detect_environment_conflicts
+from micromamba_manager import MicromambaManager
 import urllib.request
 import urllib.parse
 try:
@@ -469,11 +470,40 @@ def run_function_directly(func_key):
         print(f"❌ Error running function directly: {e}")
         return False
 
-def run_in_managed_environment(func_key, copy_mode=False, force_docker=False, no_docker=False):
+def run_in_managed_environment(func_key, copy_mode=False, force_docker=False, no_docker=False, use_mamba=False):
     """
-    Run a function in a Docker-managed environment.
+    Run a function in a managed environment (Docker or micromamba).
     """
     try:
+        # If micromamba is requested, use that
+        if use_mamba:
+            print("🐍 Running in micromamba environment...")
+            manager = MicromambaManager()
+            
+            # Ensure environment is set up
+            if not manager.environment_exists():
+                print("❌ Micromamba environment not set up")
+                print("💡 Run: python python/learn_python.py --setup-env --use-mamba")
+                return False
+            
+            # Run the function in micromamba
+            print(f"🐍 Running {func_key} in micromamba environment...")
+            script_path = os.path.abspath(__file__)
+            args = ['--functions', func_key, '--no-docker']
+            
+            # Add interactive mode flags if they're set
+            if hasattr(check_interactive_mode, 'interactive_mode') and check_interactive_mode.interactive_mode:
+                args.append('--interactive')
+            if hasattr(check_interactive_mode, 'step_mode') and check_interactive_mode.step_mode:
+                args.append('--step')
+            if hasattr(check_interactive_mode, 'always_show_docs') and check_interactive_mode.always_show_docs:
+                args.append('--doc')
+            if _snippet_mode:
+                args.append('--snip')
+            
+            result = manager.run_python_script(script_path, *args)
+            return result is not None and result.returncode == 0
+        
         # If Docker is explicitly disabled, run directly on host
         if no_docker:
             print("🏠 Running directly on host (Docker disabled with --no-docker)")
@@ -550,6 +580,9 @@ def main():
     parser.add_argument('--no-docker', action='store_true',
                       help='Disable Docker usage completely and run directly on host')
     
+    parser.add_argument('--use-mamba', action='store_true',
+                      help='Use local micromamba installation instead of Docker (installs in .mamba/)')
+    
     # Python Environment Management Options
     parser.add_argument('--setup-env', action='store_true',
                        help='Set up a new Python environment with default packages')
@@ -571,8 +604,9 @@ def main():
         copy_mode = getattr(args, 'cm', False)
         force_docker = getattr(args, 'force_docker', False)
         no_docker = getattr(args, 'no_docker', False)
+        use_mamba = getattr(args, 'use_mamba', False)
         rebuild = getattr(args, 'rebuild', False)
-        setup_mamba_environment(copy_mode=copy_mode, force_docker=force_docker, no_docker=no_docker, rebuild=rebuild)
+        setup_mamba_environment(copy_mode=copy_mode, force_docker=force_docker, no_docker=no_docker, use_mamba=use_mamba, rebuild=rebuild)
         return
     
     if args.activate_env:
@@ -585,11 +619,13 @@ def main():
         return
     
     if args.env_status:
-        mamba_environment_status()
+        use_mamba = getattr(args, 'use_mamba', False)
+        mamba_environment_status(use_mamba=use_mamba)
         return
     
     if args.cleanup_env:
-        cleanup_mamba_environments()
+        use_mamba = getattr(args, 'use_mamba', False)
+        cleanup_mamba_environments(use_mamba=use_mamba)
         return
     
     # Handle --bash-completion option
@@ -619,17 +655,28 @@ def main():
     copy_mode = getattr(args, 'cm', False)
     force_docker = getattr(args, 'force_docker', False)
     no_docker = getattr(args, 'no_docker', False)
+    use_mamba = getattr(args, 'use_mamba', False)
 
-    # Prevent using both flags at the same time
+    # Prevent using conflicting flags at the same time
     if force_docker and no_docker:
         print("❌ Error: --force-docker and --no-docker cannot be used at the same time.")
         return
+    
+    if force_docker and use_mamba:
+        print("❌ Error: --force-docker and --use-mamba cannot be used at the same time.")
+        return
+    
+    if no_docker and use_mamba:
+        print("⚠️  Warning: Both --no-docker and --use-mamba specified. Using --use-mamba.")
 
     if force_docker:
         print("⚙️ Force Docker mode enabled - all functions will run in Docker container")
     
-    if no_docker:
+    if no_docker and not use_mamba:
         print("🏠 No Docker mode enabled - all functions will run directly on host")
+    
+    if use_mamba:
+        print("🐍 Micromamba mode enabled - using local micromamba environment in .mamba/")
         
     if copy_mode:
         print("📋 Copy mode enabled - files will be copied instead of mounted")
@@ -673,7 +720,7 @@ def main():
                 set_snippet_module(func_key)
 
             # Run the function in the appropriate environment
-            if not run_in_managed_environment(func_key, copy_mode=copy_mode, force_docker=force_docker, no_docker=no_docker):
+            if not run_in_managed_environment(func_key, copy_mode=copy_mode, force_docker=force_docker, no_docker=no_docker, use_mamba=use_mamba):
                 print(f"❌ Failed to run {func_key}.")
             
             # Show any snippet messages that were collected during this function
@@ -1312,9 +1359,33 @@ def show_mamba_activation():
     except Exception as e:
         print(f"❌ Error checking Docker environment: {e}")
 
-def setup_mamba_environment(copy_mode=False, force_docker=False, no_docker=False, rebuild=False):
-    """Set up a Docker environment with all required packages."""
+def setup_mamba_environment(copy_mode=False, force_docker=False, no_docker=False, use_mamba=False, rebuild=False):
+    """Set up a managed Python environment (Docker or micromamba)."""
     try:
+        # Use micromamba if requested
+        if use_mamba:
+            print("🐍 Setting up local micromamba environment...")
+            print("   Installation directory: .mamba/")
+            print("   This works on Linux, macOS, WSL, and Termux (Android)")
+            
+            manager = MicromambaManager()
+            
+            if rebuild:
+                print("🔨 Rebuild mode enabled - will recreate environment from scratch")
+            
+            if manager.setup_environment(rebuild=rebuild):
+                print("\n✅ Micromamba environment set up successfully!")
+                print("\n💡 Activate with:")
+                print(f"   eval \"$(./mamba/bin/micromamba shell hook -s bash)\"")
+                print(f"   ./.mamba/bin/micromamba activate python-learning")
+                print("\n💡 Or run modules with:")
+                print("   python python/learn_python.py --functions basic --use-mamba")
+                return True
+            else:
+                print("❌ Failed to set up micromamba environment")
+                return False
+        
+        # Use Docker if not disabled
         if no_docker:
             print("🚫 Docker usage explicitly disabled with --no-docker flag")
             print("📝 Running all Python operations directly on host")
@@ -1348,18 +1419,64 @@ def setup_mamba_environment(copy_mode=False, force_docker=False, no_docker=False
         print(f"❌ Error setting up environment: {e}")
         return False
 
-def mamba_environment_status():
-    """Show status of Docker environment."""
+def mamba_environment_status(use_mamba=False):
+    """Show status of managed environment (Docker or micromamba)."""
     try:
-        manager = DockerEnvironmentManager()
-        manager.show_environment_status()
+        if use_mamba:
+            manager = MicromambaManager()
+            manager.show_environment_status()
+        else:
+            manager = DockerEnvironmentManager()
+            manager.show_environment_status()
         
     except Exception as e:
         print(f"❌ Error checking environment status: {e}")
 
-def cleanup_mamba_environments():
-    """Clean up Docker environments."""
+def cleanup_mamba_environments(use_mamba=False):
+    """Clean up managed environments (Docker or micromamba)."""
     try:
+        if use_mamba:
+            manager = MicromambaManager()
+            
+            print("Micromamba Environment Cleanup")
+            print("=" * 50)
+            
+            info = manager.get_environment_info()
+            
+            if info['environment_exists'] or info['micromamba_installed']:
+                print("Found micromamba resources:")
+                if info['micromamba_installed']:
+                    print(f"  - Micromamba installation: {info['mamba_root']}")
+                if info['environment_exists']:
+                    print(f"  - Environment: {info['env_name']}")
+                
+                print("\n1. Remove environment only")
+                print("2. Remove entire micromamba installation (.mamba directory)")
+                print("3. Cancel")
+                
+                response = input("Select option (1-3): ").strip()
+                
+                if response == '1':
+                    if manager.cleanup():
+                        print("✅ Environment removed.")
+                    else:
+                        print("❌ Failed to remove environment.")
+                elif response == '2':
+                    confirm = input("This will remove the entire .mamba directory. Continue? (yes/no): ").strip().lower()
+                    if confirm == 'yes':
+                        if manager.cleanup_all():
+                            print("✅ Micromamba installation removed.")
+                        else:
+                            print("❌ Failed to remove installation.")
+                    else:
+                        print("Cleanup cancelled.")
+                else:
+                    print("Cleanup cancelled.")
+            else:
+                print("No micromamba environment found.")
+            return
+        
+        # Docker cleanup
         manager = DockerEnvironmentManager()
         
         print("Docker Environment Cleanup")
