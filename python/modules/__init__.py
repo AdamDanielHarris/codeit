@@ -8,6 +8,7 @@ This package contains individual modules for learning different aspects of Pytho
 - csv_module: CSV file handling
 - pandas_module: Data analysis with pandas
 - jupyter_module: Jupyter notebook creation and IPython features
+- jupyter_interactive: Reproducible interactive notebooks with saved parameters
 - challenges: Programming challenges and algorithmic problem solving
 - challenges_2: Advanced programming challenges for production scenarios
 - database: Database operations and patterns
@@ -19,6 +20,7 @@ from . import advanced_data_structures
 from . import csv_module
 from . import pandas_module
 from . import jupyter_module
+from . import jupyter_interactive
 from . import challenges
 from . import challenges_2
 from . import database
@@ -30,6 +32,7 @@ AVAILABLE_MODULES = {
     'csv_module': (csv_module.DESCRIPTION, csv_module.FUNCTION),
     'pandas': (pandas_module.DESCRIPTION, pandas_module.FUNCTION),
     'jupyter': (jupyter_module.DESCRIPTION, jupyter_module.FUNCTION),
+    'jupyter_interactive': (jupyter_interactive.DESCRIPTION, jupyter_interactive.FUNCTION),
     'challenges': (challenges.DESCRIPTION, challenges.FUNCTION),
     'challenges_2': (challenges_2.DESCRIPTION, challenges_2.FUNCTION),
     'database': (database.DESCRIPTION, database.FUNCTION),
@@ -46,7 +49,7 @@ def setup_module_functions(set_context_func, check_interactive_func, step_throug
         snippet_section_func: Optional function for exporting code snippets
     """
     # Update all modules with the correct functions
-    for module in [basic_data_structures, advanced_data_structures, csv_module, pandas_module, jupyter_module, challenges, challenges_2, database]:
+    for module in [basic_data_structures, advanced_data_structures, csv_module, pandas_module, jupyter_module, jupyter_interactive, challenges, challenges_2, database]:
         module.set_context = set_context_func
         module.check_interactive_mode = check_interactive_func
         if step_through_func and hasattr(module, 'step_through_function'):
