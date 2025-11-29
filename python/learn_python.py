@@ -1370,14 +1370,25 @@ def setup_mamba_environment(copy_mode=False, force_docker=False, no_docker=False
             
             manager = MicromambaManager()
             
+            if manager.is_termux:
+                print("   📱 Termux detected - will use proot for environment isolation")
+            
             if rebuild:
                 print("🔨 Rebuild mode enabled - will recreate environment from scratch")
             
             if manager.setup_environment(rebuild=rebuild):
                 print("\n✅ Micromamba environment set up successfully!")
                 print("\n💡 Activate with:")
-                print(f"   eval \"$(./mamba/bin/micromamba shell hook -s bash)\"")
-                print(f"   ./.mamba/bin/micromamba activate python-learning")
+                if manager.is_termux:
+                    project_root = manager.project_root
+                    mamba_root = manager.mamba_root
+                    print("   # On Termux, run inside proot:")
+                    print(f"   proot -b {project_root}:{project_root} -b {mamba_root}:{mamba_root} bash")
+                    print(f"   eval \"$(./.mamba/bin/micromamba shell hook -s bash)\"")
+                    print(f"   ./.mamba/bin/micromamba activate python-learning")
+                else:
+                    print(f"   eval \"$(./.mamba/bin/micromamba shell hook -s bash)\"")
+                    print(f"   ./.mamba/bin/micromamba activate python-learning")
                 print("\n💡 Or run modules with:")
                 print("   python python/learn_python.py --functions basic --use-mamba")
                 return True

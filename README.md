@@ -58,6 +58,9 @@ python3 python/learn_python.py --cm             # Copy mode (restricted filesyst
 - curl (for installation)
 - ~1GB storage for environment
 - Works on Linux, macOS, WSL, Termux
+- On Termux: proot is automatically installed for environment isolation
+  - Uses `--always-copy` flag for compatibility
+  - Bind mounts project directory so generated files are accessible
 
 **Option 3: System Python**
 - Python 3.7+ with pip
