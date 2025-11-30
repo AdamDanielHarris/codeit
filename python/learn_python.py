@@ -27,6 +27,16 @@ except ImportError:
 # Import the modular learning modules
 from modules import AVAILABLE_MODULES, setup_module_functions
 
+# Custom exception to signal full exit from all modules
+class ExitAllSessions(Exception):
+    """Raised when user wants to exit all interactive sessions and quit the program."""
+    pass
+
+# Custom exception to skip to the next module
+class SkipToNextModule(Exception):
+    """Raised when user wants to skip to the next module."""
+    pass
+
 # Global variable to track current context for cs() function
 _current_context = 'basics'
 
@@ -366,13 +376,52 @@ def start_interactive_shell(local_vars=None):
         readline.set_completer(completer.complete)
         readline.parse_and_bind("tab: complete")
     
-    # Start interactive shell with all variables available (suppress default banner)
-    code.interact(banner="", local=local_vars_with_shortcuts)
+    # Custom interactive console that catches exit commands
+    class ExitAwareConsole(code.InteractiveConsole):
+        def push(self, line):
+            # Check for special commands before processing
+            stripped = line.strip()
+            if stripped in ('q', 'quit', 'quit()', 'exit', 'exit()'):
+                raise ExitAllSessions()
+            if stripped in ('skip', 'next', 'n', 's'):
+                print("\n⏩ Skipping to next module...")
+                raise SkipToNextModule()
+            # Simple commands that don't need parentheses
+            if stripped == 'cm':
+                cm()
+                return False  # Don't process further, command handled
+            if stripped == 'sc':
+                sc()
+                return False
+            if stripped == 'shortcuts':
+                shortcuts()
+                return False
+            if stripped == 'save':
+                save()
+                return False
+            if stripped == 'saved':
+                saved()
+                return False
+            if stripped == 'cs':
+                cs()
+                return False
+            return super().push(line)
+    
+    # Start interactive shell with custom console
+    console = ExitAwareConsole(locals=local_vars_with_shortcuts)
+    try:
+        console.interact(banner="")
+    except (ExitAllSessions, SkipToNextModule):
+        raise  # Re-raise to propagate up
 
 def check_interactive_mode():
     """
     Check if --interactive flag was passed and start interactive shell if so.
     Also export code snippets if --snip mode is enabled.
+    
+    Raises:
+        ExitAllSessions: When user types q/quit/exit to exit all sessions
+        SkipToNextModule: When user types skip/next/n/s to skip to next module
     """
     # Get current frame's local variables
     frame = sys._getframe(1)
@@ -384,7 +433,7 @@ def check_interactive_mode():
     
     # Check if we're in interactive mode (this will be set in main)
     if hasattr(check_interactive_mode, 'interactive_mode') and check_interactive_mode.interactive_mode:
-        start_interactive_shell(local_vars)
+        start_interactive_shell(local_vars)  # Will raise ExitAllSessions or SkipToNextModule if user requests
 
 # Bash completion support
 def generate_bash_completion():
@@ -449,6 +498,9 @@ def detect_legacy_conflicts():
     
     return False
 
+# Special exit code to signal "exit all sessions" from subprocess
+EXIT_ALL_SESSIONS_CODE = 42
+
 def run_function_directly(func_key):
     """Run a function directly on the host."""
     try:
@@ -466,6 +518,10 @@ def run_function_directly(func_key):
         print(f"🚀 Running {func_key} directly on host...")
         func()
         return True
+    except ExitAllSessions:
+        raise  # Re-raise to propagate up - user wants to exit completely
+    except SkipToNextModule:
+        return True  # User wants to skip - just return success to continue to next module
     except Exception as e:
         print(f"❌ Error running function directly: {e}")
         return False
@@ -473,6 +529,7 @@ def run_function_directly(func_key):
 def run_in_managed_environment(func_key, copy_mode=False, force_docker=False, no_docker=False, use_mamba=False):
     """
     Run a function in a managed environment (Docker or micromamba).
+    Returns True for success, False for failure, 'exit_all' if user wants to exit all sessions.
     """
     try:
         # If micromamba is requested, use that
@@ -502,6 +559,9 @@ def run_in_managed_environment(func_key, copy_mode=False, force_docker=False, no
                 args.append('--snip')
             
             result = manager.run_python_script(script_path, *args)
+            # Check for special exit code indicating user wants to exit all sessions
+            if result is not None and result.returncode == EXIT_ALL_SESSIONS_CODE:
+                return 'exit_all'
             return result is not None and result.returncode == 0
         
         # If Docker is explicitly disabled, run directly on host
@@ -537,11 +597,16 @@ def run_in_managed_environment(func_key, copy_mode=False, force_docker=False, no
                 args.append('--cm')
             
             result = manager.run_python_script(script_path, *args)
+            # Check for special exit code indicating user wants to exit all sessions
+            if result is not None and result.returncode == EXIT_ALL_SESSIONS_CODE:
+                return 'exit_all'
             return result is not None and result.returncode == 0
         
         # Neither forced nor disabled, try running directly first
         return run_function_directly(func_key)
-        
+    
+    except ExitAllSessions:
+        raise  # Re-raise to propagate up
     except Exception as e:
         print(f"❌ Error running in managed environment: {e}")
         return False
@@ -710,24 +775,35 @@ def main():
         functions_to_run = list(AVAILABLE_FUNCTIONS.keys())
     
     # Run selected functions
-    for func_key in functions_to_run:
-        if func_key in AVAILABLE_FUNCTIONS:
-            description, func = AVAILABLE_FUNCTIONS[func_key]
-            print(f"\nDemonstrating {description}:")
-            
-            # Set current module for snippet export
-            if _snippet_mode:
-                set_snippet_module(func_key)
+    try:
+        for func_key in functions_to_run:
+            if func_key in AVAILABLE_FUNCTIONS:
+                description, func = AVAILABLE_FUNCTIONS[func_key]
+                print(f"\nDemonstrating {description}:")
+                
+                # Set current module for snippet export
+                if _snippet_mode:
+                    set_snippet_module(func_key)
 
-            # Run the function in the appropriate environment
-            if not run_in_managed_environment(func_key, copy_mode=copy_mode, force_docker=force_docker, no_docker=no_docker, use_mamba=use_mamba):
-                print(f"❌ Failed to run {func_key}.")
-            
-            # Show any snippet messages that were collected during this function
-            show_all_snippet_messages()
-        else:
-            print(f"Error: Unknown function '{func_key}'. Use --list to see available functions.")
-            return
+                # Run the function in the appropriate environment
+                result = run_in_managed_environment(func_key, copy_mode=copy_mode, force_docker=force_docker, no_docker=no_docker, use_mamba=use_mamba)
+                
+                # Check if user requested exit all sessions (special return value)
+                # Note: Don't print exit message here - the subprocess already printed it
+                if result == 'exit_all':
+                    return
+                elif not result:
+                    print(f"❌ Failed to run {func_key}.")
+                
+                # Show any snippet messages that were collected during this function
+                show_all_snippet_messages()
+            else:
+                print(f"Error: Unknown function '{func_key}'. Use --list to see available functions.")
+                return
+    except ExitAllSessions:
+        # This is caught when running directly (not in subprocess)
+        print("\nExiting now")
+        sys.exit(EXIT_ALL_SESSIONS_CODE)
 
 def cs(topic=None, save=False, full=False):
     """
@@ -2065,32 +2141,32 @@ def shortcuts():
     print("=" * 60)
     print()
     print("🔍 Help & Information:")
-    print("  cs()              - Context-aware help from cheat.sh")
+    print("  cs                - Context-aware help from cheat.sh")
     print("  cs('topic')       - Get help for specific topic (e.g., cs('python/list'))")
     print("  cs('topic', save=True) - Save code examples to practice files")
     print("  cs('topic', full=True) - Save comprehensive help to organized files")
     print("  hf('function')    - Get function documentation & signature (e.g., hf('df.combine'))")
     print("  hf('function', save=True) - Get function docs & save to file")
-    print("  cm()              - Show current variables & snippet")
-    print("  shortcuts()       - Show this help (alias: sc())")
+    print("  cm                - Show current variables & snippet")
+    print("  sc, shortcuts     - Show this help")
     print()
     print("💾 Snippet Management:")
-    print("  save()            - Save current snippet with timestamp")
-    print("  saved()           - List recently saved snippets")
+    print("  save              - Save current snippet with timestamp")
+    print("  saved             - List recently saved snippets")
     print()
-    print("🚪 Exit Options:")
-    print("  q                 - Quit interactive shell")
-    print("  quit()            - Quit interactive shell")
-    print("  exit()            - Quit interactive shell")
+    print("🚪 Navigation:")
+    print("  skip, next, n, s  - Skip to the next module")
+    print("  q, quit, exit     - Exit all sessions completely")
     print()
     print("💡 Examples:")
     print("  >>> cs('python/pandas')         # Get pandas help")
-    print("  >>> cs('python/list', save=True) # Save list code examples to practice files")
-    print("  >>> cs('python/list', full=True) # Save comprehensive list help to file")
-    print("  >>> hf('df.combine')             # Get DataFrame.combine documentation")
-    print("  >>> hf('len', save=True)         # Get len() function help and save to file")
-    print("  >>> cm()                         # Show current variables & snippet")
-    print("  >>> save()                       # Save current snippet")
+    print("  >>> cs                          # Context-aware help")
+    print("  >>> hf('df.combine')            # Get DataFrame.combine documentation")
+    print("  >>> cm                          # Show current variables & snippet")
+    print("  >>> save                        # Save current snippet")
+    print("  >>> saved                       # List saved snippets")
+    print("  >>> skip                        # Skip to next module")
+    print("  >>> q                           # Exit all sessions")
     print("=" * 60)
     print()
 

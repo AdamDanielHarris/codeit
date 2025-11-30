@@ -187,12 +187,16 @@ class MicromambaManager:
             )
             return result
         except subprocess.CalledProcessError as e:
-            if capture_output:
-                print(f"Command failed: {command}")
-                if e.stdout:
-                    print(f"stdout: {e.stdout}")
-                if e.stderr:
-                    print(f"stderr: {e.stderr}")
+            if check:
+                # When check=True, return a result-like object with the exit code preserved
+                # so callers can still check .returncode for special exit codes (like 42)
+                if capture_output:
+                    print(f"Command failed: {command}")
+                    if e.stdout:
+                        print(f"stdout: {e.stdout}")
+                    if e.stderr:
+                        print(f"stderr: {e.stderr}")
+                return e  # CalledProcessError has .returncode, .stdout, .stderr
             return None
         
     def _run_command(self, cmd, capture_output=True, check=True):
@@ -204,7 +208,7 @@ class MicromambaManager:
         Args:
             cmd: Command to run (list or string)
             capture_output: Whether to capture stdout/stderr
-            check: Whether to raise on non-zero exit
+            check: Whether to raise on non-zero exit (if False, returns result with exit code)
         """
         try:
             if self.use_proot:
@@ -226,13 +230,15 @@ class MicromambaManager:
                 )
                 return result
         except subprocess.CalledProcessError as e:
+            # When check=True, return the exception (it has .returncode) so callers
+            # can still check for special exit codes like 42 (exit all sessions)
             if capture_output:
                 print(f"Command failed: {cmd}")
                 if e.stdout:
                     print(f"stdout: {e.stdout}")
                 if e.stderr:
                     print(f"stderr: {e.stderr}")
-            return None
+            return e  # CalledProcessError has .returncode, .stdout, .stderr
     
     def is_micromamba_installed(self):
         """Check if micromamba is installed in .mamba directory."""
@@ -400,7 +406,11 @@ class MicromambaManager:
         return base_cmd
     
     def run_python_script(self, script_path, *args):
-        """Run a Python script in the micromamba environment."""
+        """Run a Python script in the micromamba environment.
+        
+        Returns the result object which includes .returncode for checking exit status.
+        Special exit codes like 42 indicate user requested to exit all sessions.
+        """
         if not self.environment_exists():
             print("❌ Environment not set up")
             return None
@@ -418,7 +428,8 @@ class MicromambaManager:
         ]
         cmd_parts.extend(args)
         
-        result = self._run_command(cmd_parts, capture_output=False)
+        # Don't check=True so we can capture special exit codes like 42
+        result = self._run_command(cmd_parts, capture_output=False, check=False)
         return result
     
     def run_command_in_environment(self, command, interactive=False):

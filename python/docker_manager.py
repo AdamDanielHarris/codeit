@@ -23,7 +23,13 @@ class DockerEnvironmentManager:
         self.force_docker = False  # Default to auto-detection
         
     def _run_docker_command(self, cmd, capture_output=True, check=True):
-        """Run a docker command and return the result."""
+        """Run a docker command and return the result.
+        
+        Args:
+            cmd: Command to run (list)
+            capture_output: Whether to capture stdout/stderr
+            check: Whether to raise on non-zero exit (if False, returns result with exit code)
+        """
         try:
             result = subprocess.run(
                 cmd,
@@ -33,13 +39,15 @@ class DockerEnvironmentManager:
             )
             return result
         except subprocess.CalledProcessError as e:
+            # Return the exception (it has .returncode) so callers can check for
+            # special exit codes like 42 (exit all sessions)
             if capture_output:
                 print(f"Docker command failed: {' '.join(cmd)}")
                 if e.stdout:
                     print(f"stdout: {e.stdout}")
                 if e.stderr:
                     print(f"stderr: {e.stderr}")
-            return None
+            return e  # CalledProcessError has .returncode, .stdout, .stderr
     
     def is_docker_available(self):
         """Check if Docker is available and running."""
@@ -255,8 +263,9 @@ class DockerEnvironmentManager:
         ])
         
         if interactive:
-            # For interactive commands, don't capture output
-            result = self._run_docker_command(cmd, capture_output=False)
+            # For interactive commands, don't capture output and don't check
+            # so we can capture special exit codes like 42 (exit all sessions)
+            result = self._run_docker_command(cmd, capture_output=False, check=False)
         else:
             result = self._run_docker_command(cmd)
         
@@ -306,8 +315,8 @@ class DockerEnvironmentManager:
         sync_thread.start()
         
         try:
-            # Run the interactive command
-            result = self._run_docker_command(cmd, capture_output=False)
+            # Run the interactive command - don't check so we capture exit codes like 42
+            result = self._run_docker_command(cmd, capture_output=False, check=False)
             return result
         finally:
             # Stop sync thread and do final sync
@@ -315,8 +324,6 @@ class DockerEnvironmentManager:
             print("\n📁 Performing final sync...")
             self.sync_from_container(quiet=False)
             print("✅ Interactive session ended, files synced")
-        
-        return result
     
     def run_python_script(self, script_path, *args):
         """Run a Python script inside the container."""
