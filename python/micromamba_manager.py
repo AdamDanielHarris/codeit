@@ -520,7 +520,7 @@ class MicromambaManager:
         print("\n💡 Activate with:")
         if self.is_termux:
             print("   # On Termux, commands run automatically inside proot")
-            print("   python python/learn_python.py --functions basic --use-mamba")
+            print("   python python/learn_python.py --functions basic --mamba")
         else:
             print(f"   eval \"$({self.micromamba_bin} shell hook -s bash)\"")
             print(f"   {self.micromamba_bin} activate {self.env_name}")

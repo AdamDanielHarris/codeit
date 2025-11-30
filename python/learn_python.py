@@ -540,7 +540,7 @@ def run_in_managed_environment(func_key, copy_mode=False, force_docker=False, no
             # Ensure environment is set up
             if not manager.environment_exists():
                 print("❌ Micromamba environment not set up")
-                print("💡 Run: python python/learn_python.py --setup-env --use-mamba")
+                print("💡 Run: python python/learn_python.py --setup-env --mamba")
                 return False
             
             # Run the function in micromamba
@@ -571,7 +571,7 @@ def run_in_managed_environment(func_key, copy_mode=False, force_docker=False, no
         
         # If Docker is forced, or if Docker is available and not disabled
         if force_docker:
-            print("🔄 Running in Docker environment (forced with --force-docker)")
+            print("🔄 Running in Docker environment (forced with --docker)")
             manager = DockerEnvironmentManager()
             
             # Ensure environment is set up
@@ -639,13 +639,13 @@ def main():
     parser.add_argument('--cm', '--copy-mode', action='store_true',
                       help='Use file copying instead of volume mounting (for restricted environments)')
     
-    parser.add_argument('--force-docker', action='store_true',
+    parser.add_argument('--docker', action='store_true',
                       help='Force using Docker for all operations, regardless of environment detection')
     
     parser.add_argument('--no-docker', action='store_true',
                       help='Disable Docker usage completely and run directly on host')
     
-    parser.add_argument('--use-mamba', action='store_true',
+    parser.add_argument('--mamba', action='store_true',
                       help='Use local micromamba installation instead of Docker (installs in .mamba/)')
     
     # Python Environment Management Options
@@ -667,9 +667,9 @@ def main():
     # Handle Python environment management options first
     if args.setup_env:
         copy_mode = getattr(args, 'cm', False)
-        force_docker = getattr(args, 'force_docker', False)
+        force_docker = getattr(args, 'docker', False)
         no_docker = getattr(args, 'no_docker', False)
-        use_mamba = getattr(args, 'use_mamba', False)
+        use_mamba = getattr(args, 'mamba', False)
         rebuild = getattr(args, 'rebuild', False)
         setup_mamba_environment(copy_mode=copy_mode, force_docker=force_docker, no_docker=no_docker, use_mamba=use_mamba, rebuild=rebuild)
         return
@@ -679,22 +679,22 @@ def main():
         return
     
     if args.install_packages:
-        use_mamba = getattr(args, 'use_mamba', False)
+        use_mamba = getattr(args, 'mamba', False)
         if use_mamba:
             print("❌ Direct package installation not yet implemented for micromamba environments.")
-            print("💡 Instead, edit python/environment.yml and run --setup-env --use-mamba to recreate environment.")
+            print("💡 Instead, edit python/environment.yml and run --setup-env --mamba to recreate environment.")
         else:
             print("❌ Direct package installation not yet implemented for Docker environments.")
             print("💡 Instead, edit python/environment.yml and run --setup-env to recreate environment.")
         return
     
     if args.env_status:
-        use_mamba = getattr(args, 'use_mamba', False)
+        use_mamba = getattr(args, 'mamba', False)
         mamba_environment_status(use_mamba=use_mamba)
         return
     
     if args.cleanup_env:
-        use_mamba = getattr(args, 'use_mamba', False)
+        use_mamba = getattr(args, 'mamba', False)
         cleanup_mamba_environments(use_mamba=use_mamba)
         return
     
@@ -723,21 +723,21 @@ def main():
     
     # Set copy mode and Docker flags from args
     copy_mode = getattr(args, 'cm', False)
-    force_docker = getattr(args, 'force_docker', False)
+    force_docker = getattr(args, 'docker', False)
     no_docker = getattr(args, 'no_docker', False)
-    use_mamba = getattr(args, 'use_mamba', False)
+    use_mamba = getattr(args, 'mamba', False)
 
     # Prevent using conflicting flags at the same time
     if force_docker and no_docker:
-        print("❌ Error: --force-docker and --no-docker cannot be used at the same time.")
+        print("❌ Error: --docker and --no-docker cannot be used at the same time.")
         return
     
     if force_docker and use_mamba:
-        print("❌ Error: --force-docker and --use-mamba cannot be used at the same time.")
+        print("❌ Error: --docker and --mamba cannot be used at the same time.")
         return
     
     if no_docker and use_mamba:
-        print("⚠️  Warning: Both --no-docker and --use-mamba specified. Using --use-mamba.")
+        print("⚠️  Warning: Both --no-docker and --mamba specified. Using --mamba.")
 
     if force_docker:
         print("⚙️ Force Docker mode enabled - all functions will run in Docker container")
@@ -1471,7 +1471,7 @@ def setup_mamba_environment(copy_mode=False, force_docker=False, no_docker=False
                     print(f"   eval \"$(./.mamba/bin/micromamba shell hook -s bash)\"")
                     print(f"   ./.mamba/bin/micromamba activate python-learning")
                 print("\n💡 Or run modules with:")
-                print("   python python/learn_python.py --functions basic --use-mamba")
+                print("   python python/learn_python.py --functions basic --mamba")
                 return True
             else:
                 print("❌ Failed to set up micromamba environment")
@@ -1487,7 +1487,7 @@ def setup_mamba_environment(copy_mode=False, force_docker=False, no_docker=False
         
         print("🚀 Setting up Docker environment for Python learning...")
         if force_docker:
-            print("⚙️ Docker usage forced with --force-docker flag")
+            print("⚙️ Docker usage forced with --docker flag")
             print("📝 All Python operations will use Docker container")
             
         if copy_mode:

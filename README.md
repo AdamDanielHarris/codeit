@@ -21,12 +21,12 @@ python3 python/learn_python.py --list
 
 # Setup environments
 python3 python/learn_python.py --setup-env               # Docker (default)
-python3 python/learn_python.py --setup-env --use-mamba   # Local micromamba (Linux/macOS/Termux)
+python3 python/learn_python.py --setup-env --mamba   # Local micromamba (Linux/macOS/Termux)
 python3 python/learn_python.py --setup-env --rebuild     # Rebuild after changing environment.yml
 
 # Execution modes
-python3 python/learn_python.py --use-mamba      # Use local micromamba environment
-python3 python/learn_python.py --force-docker   # Force Docker usage
+python3 python/learn_python.py --mamba      # Use local micromamba environment
+python3 python/learn_python.py --docker   # Force Docker usage
 python3 python/learn_python.py --no-docker      # Host Python only
 python3 python/learn_python.py --cm             # Copy mode (restricted filesystems)
 ```
