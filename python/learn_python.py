@@ -679,8 +679,13 @@ def main():
         return
     
     if args.install_packages:
-        print("❌ Direct package installation not yet implemented for Docker environments.")
-        print("💡 Instead, edit python/environment.yml and run --setup-env to recreate environment.")
+        use_mamba = getattr(args, 'use_mamba', False)
+        if use_mamba:
+            print("❌ Direct package installation not yet implemented for micromamba environments.")
+            print("💡 Instead, edit python/environment.yml and run --setup-env --use-mamba to recreate environment.")
+        else:
+            print("❌ Direct package installation not yet implemented for Docker environments.")
+            print("💡 Instead, edit python/environment.yml and run --setup-env to recreate environment.")
         return
     
     if args.env_status:
